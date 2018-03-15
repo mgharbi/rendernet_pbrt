@@ -1,0 +1,3 @@
+core/pbrtparse.hh
+core/pbrtparse.cpp
+core/pbrtlex.cpp
