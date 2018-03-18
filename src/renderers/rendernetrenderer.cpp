@@ -184,7 +184,7 @@ void RendernetRendererTask::Run() {
               lowspp_variance += delta*(Ls[i] - current);
               lowspp_radiance += (Ls[i]-lowspp_radiance)/(n_added_lowspp+1);
               n_added_lowspp += 1;
-            } else {
+            } else {  // skipping "recordedSamples" from the groundtruth ensure i/o are decorrelated
               Spectrum current = radiance;
               Spectrum delta = (Ls[i] - current);
               current += delta/(n_added+1);
@@ -195,12 +195,6 @@ void RendernetRendererTask::Run() {
             }
             
         }
-
-        // Update max_radiance
-        // float rgb[3];
-        // radiance.ToRGB(rgb);
-        // float max = *std::max_element(rgb, rgb+3);
-        // max_radiance = max > max_radiance ? max : max_radiance;
 
         // Add rendered pixel to record
         sr->ground_truth.push_back(radiance.ToRGBSpectrum());
@@ -286,8 +280,6 @@ void RendernetRenderer::Render(const Scene *scene) {
 
     // Compute number of _RendernetRendererTask_s to create for rendering
     
-    // int xRes = camera->film->xResolution;
-    // int yRes = camera->film->yResolution;
     int xstart, xend, ystart, yend;
     camera->film->GetPixelExtent(&xstart, &xend, &ystart, &yend);
     int xRes = xend-xstart;
@@ -321,16 +313,8 @@ void RendernetRenderer::Render(const Scene *scene) {
     }
     EnqueueTasks(renderTasks);
     WaitForAllTasks();
-    // float max_radiance = 0.0f;
-    // for (uint32_t i = 0; i < renderTasks.size(); ++i) {
-    //   float maybe_max = static_cast<RendernetRendererTask*>(renderTasks[i])->max_radiance;
-    //   max_radiance = max_radiance > maybe_max ? max_radiance : maybe_max;
-    // }
 
     for (uint32_t i = 0; i < renderTasks.size(); ++i) {
-    //   SampleRecord::update_globals(
-    //       static_cast<RendernetRendererTask*>(renderTasks[i])->fname,
-    //       max_radiance);
       delete renderTasks[i];
     }
 
