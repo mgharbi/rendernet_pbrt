@@ -157,12 +157,12 @@ Spectrum PathRendernetIntegrator::RecordedLi(const Scene *scene, const Renderer 
         Spectrum currAlbedo = bsdf->K();
 
         if (f.IsBlack() || pdf == 0.) {
+          if (bounces == 0) {
+            albedo_at_first = currAlbedo;
+          }
           if(!recordedOutputValues) {
             depth = hitDistance;
             albedo = runningAlbedo*currAlbedo;
-            if (bounces == 0) {
-              albedo_at_first = currAlbedo;
-            }
             visibility = qr.visibility;
 
             Normal ssn(n);
