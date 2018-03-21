@@ -99,7 +99,7 @@ Spectrum PathRendernetIntegrator::RecordedLi(const Scene *scene, const Renderer 
           
           // TODO(mgharbi): shouldnt we take only the component parallel to the
           // optical axis?
-          depth_at_first = depth_vector.Length();
+          depth_at_first = hitDistance;
         }
 
         Vector wo = -ray.d;
@@ -154,26 +154,34 @@ Spectrum PathRendernetIntegrator::RecordedLi(const Scene *scene, const Renderer 
         BxDFType flags;
         Spectrum f = bsdf->Sample_f(wo, &wi, outgoingBSDFSample, &pdf,
                                     BSDF_ALL, &flags);
+        Spectrum currAlbedo = bsdf->K();
 
         if (f.IsBlack() || pdf == 0.) {
-          depth = hitDistance;
-          albedo = 0.0f;
-          visibility = qr.visibility;
-          recordedOutputValues = true;
+          if(!recordedOutputValues) {
+            printf("setting data: radiance %f, is black %d, pdf %f\n", f.y(), f.IsBlack(), pdf);
 
-          Normal ssn(n);
-          if (Dot(ssn, ray.d) < 0) { //face forward
-            ssn.x *= -1.0f;
-            ssn.y *= -1.0f;
-            ssn.z *= -1.0f;
-          }
+            depth = hitDistance;
+            albedo = runningAlbedo*currAlbedo;
+            if (bounces == 0) {
+              albedo_at_first = currAlbedo;
+            }
+            visibility = qr.visibility;
 
-          if(sr && sr->useCameraSpaceNormals) {
-            Transform tx;
-            camera->CameraToWorld.Interpolate(sample->time, &tx);
-            nrm = Inverse(tx)(ssn);
-          } else {
-            nrm = ssn;
+            Normal ssn(n);
+            if (Dot(ssn, ray.d) < 0) { //face forward
+              ssn.x *= -1.0f;
+              ssn.y *= -1.0f;
+              ssn.z *= -1.0f;
+            }
+
+            if(sr && sr->useCameraSpaceNormals) {
+              Transform tx;
+              camera->CameraToWorld.Interpolate(sample->time, &tx);
+              nrm = Inverse(tx)(ssn);
+            } else {
+              nrm = ssn;
+            }
+            recordedOutputValues = true;
           }
 
           break;
@@ -181,13 +189,12 @@ Spectrum PathRendernetIntegrator::RecordedLi(const Scene *scene, const Renderer 
 
         Spectrum bsdfWeight =  f * AbsDot(wi, n) / pdf;
         pathThroughput *= bsdfWeight;
-        Spectrum currAlbedo = bsdf->K();
 
         specularBounce = (flags & BSDF_SPECULAR) != 0;
 
         if (bsdfWeight.HasNaNs() || isinf(bsdfWeight.y())) {
+          Error("Not-a-number in bsdfweight");
           break;
-          // Error("Not-a-number in bsdfweight");
         }
 
         // If the brdf has a diffuse component, we found our first
@@ -227,8 +234,7 @@ Spectrum PathRendernetIntegrator::RecordedLi(const Scene *scene, const Renderer 
           runningAlbedo *= currAlbedo;
         }  // record values
 
-        // TODO: use texture access/BSDF.rho as albedo at first
-        if (sr && bounces == 0) {
+        if (bounces == 0) {
           albedo_at_first = currAlbedo;
         }
         
@@ -279,13 +285,14 @@ Spectrum PathRendernetIntegrator::RecordedLi(const Scene *scene, const Renderer 
         nrm.z = 0.0f;
       }
       if (albedo.HasNaNs()) {
+        Error("albedo has nans");
         albedo = Spectrum(0.f);
       }
       if (albedo_at_first.HasNaNs()) {
+        Error("albedo at first has nans");
         albedo_at_first = Spectrum(0.f);
       }
       if (albedo.y() > 101.0f || albedo_at_first.y() > 101.0f) {
-          printf("albedo %f %f\n", albedo.y(), albedo_at_first.y());
           Error("albedo is too high");
           throw;
       }
