@@ -158,8 +158,6 @@ Spectrum PathRendernetIntegrator::RecordedLi(const Scene *scene, const Renderer 
 
         if (f.IsBlack() || pdf == 0.) {
           if(!recordedOutputValues) {
-            printf("setting data: radiance %f, is black %d, pdf %f\n", f.y(), f.IsBlack(), pdf);
-
             depth = hitDistance;
             albedo = runningAlbedo*currAlbedo;
             if (bounces == 0) {
