@@ -52,6 +52,8 @@ Spectrum PathRendernetIntegrator::RecordedLi(const Scene *scene, const Renderer 
 
     std::vector<float> probabilities(4*(maxDepth+1), 0.0f);
 
+    std::vector<uint16_t> bounce_type((maxDepth+1), 0);
+
     for (int bounces = 0; ; ++bounces) {
         // Possibly add emitted light at path vertex
         if (bounces == 0 || specularBounce) {
@@ -154,6 +156,7 @@ Spectrum PathRendernetIntegrator::RecordedLi(const Scene *scene, const Renderer 
         BxDFType flags;
         Spectrum f = bsdf->Sample_f(wo, &wi, outgoingBSDFSample, &pdf,
                                     BSDF_ALL, &flags);
+        bounce_type[bounces] = flags;
         Spectrum currAlbedo = bsdf->K();
 
         if (f.IsBlack() || pdf == 0.) {
@@ -317,6 +320,7 @@ Spectrum PathRendernetIntegrator::RecordedLi(const Scene *scene, const Renderer 
       sr->radiance_diffuse_indirect.push_back(Ldiffuse_indirect);
       sr->radiance_specular.push_back(L - Ldiffuse);
       sr->probabilities.push_back(probabilities);
+      sr->bounce_type.push_back(bounce_type);
     }
 
     return L;

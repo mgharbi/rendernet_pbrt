@@ -2,18 +2,17 @@
 #include <fstream>
 #include <iostream>
 
-int SampleRecord::version = 20180313;
-int SampleRecord::meta_length = 8;
+int SampleRecord::version = 20180324;
 int SampleRecord::sample_features = 
   5   // dx, dy, u, v, t
-  + 3*3 // rgb*(diffuse + diffuse_indirect + specular)
+  + 3*2 // rgb*(diffuse + specular)
   + 3   // normals_at_first
-  + 3   // normals
+  + 0   // normals
   + 1   // depth_at_first
-  + 1   // depth
+  + 0   // depth
   + 1   // visibility
   + 3   // albedo_at_first
-  + 3;  // albedo
+  + 0;  // albedo
 int SampleRecord::pixel_features = 3*4; // rgb * (gt + std + lowspp + lowspp_std)
 
 SampleRecord::SampleRecord(
@@ -46,6 +45,7 @@ SampleRecord::SampleRecord(
   albedo.reserve(tileSize*tileSize*sample_count);
   albedo_at_first.reserve(tileSize*tileSize*sample_count);
   probabilities.reserve(tileSize*tileSize*sample_count);
+  bounce_type.reserve(tileSize*tileSize*sample_count);
 
   // suffix
   ground_truth.reserve(tileSize*tileSize);
@@ -196,17 +196,38 @@ void SampleRecord::write_p_sample_buffer(int sample_id, vector<vector<float> > &
   delete[] tmp;
 }
 
+void SampleRecord::write_bt_sample_buffer(int sample_id, vector<vector<uint16_t> > &src, std::ofstream &f) {
+  int npixels = tileSize*tileSize;
+  int n = maxDepth;
+  uint16_t* tmp = new uint16_t[npixels*n];
+  // convert to contiguous pixels
+  for(int pixel_id = 0; pixel_id < npixels; ++pixel_id)
+  {
+    int src_idx = sample_id + sample_count*pixel_id;
+    vector<uint16_t> p = src[src_idx];
+    for(int i = 0; i < n; ++ i) {
+      int tgt_idx = i*npixels + pixel_id;
+      tmp[tgt_idx] = p[i];
+    }
+  }
+
+  f.write((char*) tmp, n*npixels*sizeof(uint16_t));
+  delete[] tmp;
+}
+
 void SampleRecord::normalize_distances() {
   int npixels = tileSize*tileSize;
   float normalizer = scene_radius > 0.0f ? 1.0f/(10.0f*scene_radius) : 1.0f;
   for(int i = 0; i < npixels*sample_count; ++i) {
     depth[i] *= normalizer; 
     depth_at_first[i] *= normalizer; 
+    lens_u[i] *= normalizer; 
+    lens_v[i] *= normalizer; 
   }
   focal_distance *= normalizer;
-
   // If aperture is rescaled, u, v should be as well
-  // aperture_radius *= normalizer;
+  aperture_radius *= normalizer;
+
 }
 
 void SampleRecord::normalize_probabilities() {
@@ -279,15 +300,16 @@ void SampleRecord::save(const char* fname) {
     write_sample_buffer(sample_id, time, f);
     write_rgb_sample_buffer(sample_id, radiance_diffuse, f);
     write_rgb_sample_buffer(sample_id, radiance_specular, f);
-    write_rgb_sample_buffer(sample_id, radiance_diffuse_indirect, f);
+    // write_rgb_sample_buffer(sample_id, radiance_diffuse_indirect, f);
     write_normal_sample_buffer(sample_id, normal_at_first, f);
-    write_normal_sample_buffer(sample_id, normal, f);
+    // write_normal_sample_buffer(sample_id, normal, f);
     write_sample_buffer(sample_id, depth_at_first, f);
-    write_sample_buffer(sample_id, depth, f);
+    // write_sample_buffer(sample_id, depth, f);
     write_sample_buffer(sample_id, visibility, f);
     write_rgb_sample_buffer(sample_id, albedo_at_first, f);
-    write_rgb_sample_buffer(sample_id, albedo, f);
-    write_p_sample_buffer(sample_id, probabilities, f);
+    // write_rgb_sample_buffer(sample_id, albedo, f);
+    // write_p_sample_buffer(sample_id, probabilities, f);
+    write_bt_sample_buffer(sample_id, bounce_type, f);
   }
   
   f.close();

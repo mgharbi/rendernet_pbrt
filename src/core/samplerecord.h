@@ -24,7 +24,6 @@ public:
   static int version;
   static int sample_features;
   static int pixel_features;
-  static int meta_length;
 
   SampleRecord(
       int x, int y, int tilesize, int sample_count, int spp, int maxDepth,
@@ -70,6 +69,7 @@ public:
   vector<RGBSpectrum> albedo;
   vector<RGBSpectrum> albedo_at_first;
   vector<vector<float> > probabilities;
+  vector<vector<uint16_t> > bounce_type;  // see core/reflection.h
 
   // suffix
   vector<RGBSpectrum> ground_truth;
@@ -89,6 +89,7 @@ private:
   void write_rgb_sample_buffer(int sidx, vector<RGBSpectrum> &src, std::ofstream &f, float clamp = -1.0f);
   void write_normal_sample_buffer(int sidx, vector<Normal> &src, std::ofstream &f);
   void write_p_sample_buffer(int sidx, vector<vector<float> > &src, std::ofstream &f);
+  void write_bt_sample_buffer(int sidx, vector<vector<uint16_t> > &src, std::ofstream &f);
 
 };
 
