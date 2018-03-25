@@ -372,6 +372,8 @@ Spectrum RendernetRenderer::RecordedLi(const Scene *scene,
           sr->radiance_specular.push_back(Li); // We only have the scene lights/envmap contributions
           std::vector<float> p(4*sr->maxDepth);
           sr->probabilities.push_back(p);
+          std::vector<float> ld(2*sr->maxDepth);
+          sr->light_directions.push_back(ld);
           std::vector<uint16_t> bt(sr->maxDepth);
           sr->bounce_type.push_back(bt);
         }

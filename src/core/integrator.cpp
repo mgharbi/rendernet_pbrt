@@ -130,7 +130,11 @@ Spectrum EstimateDirect(const Scene *scene, const Renderer *renderer,
     Spectrum Li = light->Sample_L(p, rayEpsilon, lightSample, time,
                                   &wi, &lightPdf, &visibility);
 
-    if (qr) qr->pdfs[0] = lightPdf;
+    if (qr) {
+      qr->pdfs[0] = lightPdf;
+      qr->set_angles(wi);
+      // TODO: set angles for MIS
+    }
 
     if (lightPdf > 0. && !Li.IsBlack()) {
         Spectrum f = bsdf->f(wo, wi, flags);

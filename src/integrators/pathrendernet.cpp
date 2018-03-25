@@ -51,6 +51,7 @@ Spectrum PathRendernetIntegrator::RecordedLi(const Scene *scene, const Renderer 
     Spectrum albedo_at_first = 0.f;
 
     std::vector<float> probabilities(4*(maxDepth+1), 0.0f);
+    std::vector<float> light_directions(2*(maxDepth+1), 0.0f);
 
     std::vector<uint16_t> bounce_type((maxDepth+1), 0);
 
@@ -141,6 +142,8 @@ Spectrum PathRendernetIntegrator::RecordedLi(const Scene *scene, const Renderer 
           }
         }
         std::copy(qr.pdfs, qr.pdfs+4, probabilities.begin()+4*bounces);
+        light_directions[2*bounces + 0] = qr.theta;
+        light_directions[2*bounces + 1] = qr.phi;
 
         // Sample BSDF to get new path direction
 
@@ -320,6 +323,7 @@ Spectrum PathRendernetIntegrator::RecordedLi(const Scene *scene, const Renderer 
       sr->radiance_diffuse_indirect.push_back(Ldiffuse_indirect);
       sr->radiance_specular.push_back(L - Ldiffuse);
       sr->probabilities.push_back(probabilities);
+      sr->light_directions.push_back(light_directions);
       sr->bounce_type.push_back(bounce_type);
     }
 

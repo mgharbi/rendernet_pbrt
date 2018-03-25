@@ -2,14 +2,14 @@
 #include <fstream>
 #include <iostream>
 
-int SampleRecord::version = 20180324;
+int SampleRecord::version = 20180325;
 int SampleRecord::sample_features = 
   5   // dx, dy, u, v, t
   + 3*2 // rgb*(diffuse + specular)
   + 3   // normals_at_first
-  + 0   // normals
+  + 3   // normals
   + 1   // depth_at_first
-  + 0   // depth
+  + 1   // depth
   + 1   // visibility
   + 3   // albedo_at_first
   + 0;  // albedo
@@ -45,6 +45,7 @@ SampleRecord::SampleRecord(
   albedo.reserve(tileSize*tileSize*sample_count);
   albedo_at_first.reserve(tileSize*tileSize*sample_count);
   probabilities.reserve(tileSize*tileSize*sample_count);
+  light_directions.reserve(tileSize*tileSize*sample_count);
   bounce_type.reserve(tileSize*tileSize*sample_count);
 
   // suffix
@@ -177,9 +178,9 @@ void SampleRecord::write_normal_sample_buffer(int sample_id, vector<Normal> &src
   delete[] tmp;
 }
 
-void SampleRecord::write_p_sample_buffer(int sample_id, vector<vector<float> > &src, std::ofstream &f) {
+void SampleRecord::write_float_path_data(int sample_id, int count, vector<vector<float> > &src, std::ofstream &f) {
   int npixels = tileSize*tileSize;
-  int n_proba = 4*maxDepth;
+  int n_proba = count*maxDepth;
   float* tmp = new float[npixels*n_proba];
   // convert to contiguous pixels
   for(int pixel_id = 0; pixel_id < npixels; ++pixel_id)
@@ -302,13 +303,14 @@ void SampleRecord::save(const char* fname) {
     write_rgb_sample_buffer(sample_id, radiance_specular, f);
     // write_rgb_sample_buffer(sample_id, radiance_diffuse_indirect, f);
     write_normal_sample_buffer(sample_id, normal_at_first, f);
-    // write_normal_sample_buffer(sample_id, normal, f);
+    write_normal_sample_buffer(sample_id, normal, f);
     write_sample_buffer(sample_id, depth_at_first, f);
-    // write_sample_buffer(sample_id, depth, f);
+    write_sample_buffer(sample_id, depth, f);
     write_sample_buffer(sample_id, visibility, f);
-    write_rgb_sample_buffer(sample_id, albedo_at_first, f);
-    // write_rgb_sample_buffer(sample_id, albedo, f);
-    // write_p_sample_buffer(sample_id, probabilities, f);
+    // write_rgb_sample_buffer(sample_id, albedo_at_first, f);
+    write_rgb_sample_buffer(sample_id, albedo, f);
+    // write_float_path_data(sample_id, 4, probabilities, f);
+    write_float_path_data(sample_id, 2, light_directions, f);
     write_bt_sample_buffer(sample_id, bounce_type, f);
   }
   

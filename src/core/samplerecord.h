@@ -12,11 +12,33 @@ class LightQueryRecord {
 
 public:
   LightQueryRecord() 
-    : visibility(0.0f), diffuse_lighting(0.0f) { memset(pdfs, 0, sizeof(float)*4); };
+    : visibility(0.0f), diffuse_lighting(0.0f), theta(0.f), phi(0.f)
+  { memset(pdfs, 0, sizeof(float)*4); };
   Spectrum visibility;
   Spectrum diffuse_lighting;
+  // Spherical coordinates of light_sample
+  float theta;
+  float phi;
+  // Direct/BSDF light sampling pdf
   float pdfs[4]; // (light_pdf, bsdf_pdf)_light, (light_pdf, bsdf_pdf)_bsdf
 
+  void set_angles(Vector wi) {
+    // spherical coordinates of light direction
+    float nrm = sqrt(wi.x*wi.x + wi.y*wi.y);
+    if(nrm == 0.0f) {
+      theta = 0.0f;
+    } else {
+      theta = atan2(wi.y, wi.x);
+    }
+
+    if (nrm == 0.0f && wi.z == 0) {
+      phi = 0.0f;
+    } else {
+      phi = atan2(nrm, wi.z);
+    }
+    theta /= M_PI;
+    phi /= M_PI;
+  }
 };
 
 class SampleRecord {
@@ -69,6 +91,7 @@ public:
   vector<RGBSpectrum> albedo;
   vector<RGBSpectrum> albedo_at_first;
   vector<vector<float> > probabilities;
+  vector<vector<float> > light_directions;
   vector<vector<uint16_t> > bounce_type;  // see core/reflection.h
 
   // suffix
@@ -88,7 +111,7 @@ private:
   void write_sample_buffer(int sidx, vector<float> &src, std::ofstream &f);
   void write_rgb_sample_buffer(int sidx, vector<RGBSpectrum> &src, std::ofstream &f, float clamp = -1.0f);
   void write_normal_sample_buffer(int sidx, vector<Normal> &src, std::ofstream &f);
-  void write_p_sample_buffer(int sidx, vector<vector<float> > &src, std::ofstream &f);
+  void write_float_path_data(int sidx, int count, vector<vector<float> > &src, std::ofstream &f);
   void write_bt_sample_buffer(int sidx, vector<vector<uint16_t> > &src, std::ofstream &f);
 
 };
