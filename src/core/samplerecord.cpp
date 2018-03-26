@@ -12,7 +12,7 @@ int SampleRecord::sample_features =
   + 1   // depth
   + 1   // visibility
   + 3   // albedo_at_first
-  + 0;  // albedo
+  + 3;  // albedo
 int SampleRecord::pixel_features = 3*4; // rgb * (gt + std + lowspp + lowspp_std)
 
 SampleRecord::SampleRecord(
@@ -307,7 +307,7 @@ void SampleRecord::save(const char* fname) {
     write_sample_buffer(sample_id, depth_at_first, f);
     write_sample_buffer(sample_id, depth, f);
     write_sample_buffer(sample_id, visibility, f);
-    // write_rgb_sample_buffer(sample_id, albedo_at_first, f);
+    write_rgb_sample_buffer(sample_id, albedo_at_first, f);
     write_rgb_sample_buffer(sample_id, albedo, f);
     // write_float_path_data(sample_id, 4, probabilities, f);
     write_float_path_data(sample_id, 2, light_directions, f);

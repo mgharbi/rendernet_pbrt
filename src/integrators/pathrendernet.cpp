@@ -36,7 +36,7 @@ Spectrum PathRendernetIntegrator::RecordedLi(const Scene *scene, const Renderer 
     Intersection localIsect;
     const Intersection *isectp = &isect;
 
-    Spectrum runningAlbedo = 1.f;
+    // Spectrum runningAlbedo = 1.f;
     Spectrum visibility = 0.f;
 
     bool recordedOutputValues = false;
@@ -126,14 +126,14 @@ Spectrum PathRendernetIntegrator::RecordedLi(const Scene *scene, const Renderer 
           qr.visibility= 1.0f;
         }
         
+        L += contrib*pathThroughput;
         if (!foundRough && bsdf_has_diffuse) {
-          L += contrib*pathThroughput;
-          Ldiffuse += qr.diffuse_lighting*pathThroughputDiffuse;
+          // Ldiffuse += qr.diffuse_lighting*pathThroughputDiffuse;
+            Ldiffuse += contrib*pathThroughputDiffuse;
           if (bounces > 0)  {
             Ldiffuse_indirect += contrib*pathThroughputDiffuse;
           }
         } else {
-          L += contrib*pathThroughput;
           if (foundRough) {
             Ldiffuse += contrib*pathThroughputDiffuse;
             if (bounces > 0)  {
@@ -168,7 +168,8 @@ Spectrum PathRendernetIntegrator::RecordedLi(const Scene *scene, const Renderer 
           }
           if(!recordedOutputValues) {
             depth = hitDistance;
-            albedo = runningAlbedo*currAlbedo;
+            // albedo = runningAlbedo*currAlbedo;
+            albedo = currAlbedo;
             visibility = qr.visibility;
 
             Normal ssn(n);
@@ -195,6 +196,7 @@ Spectrum PathRendernetIntegrator::RecordedLi(const Scene *scene, const Renderer 
         pathThroughput *= bsdfWeight;
 
         specularBounce = (flags & BSDF_SPECULAR) != 0;
+        bool diffuseBounce = (flags & BSDF_DIFFUSE) != 0;
 
         if (bsdfWeight.HasNaNs() || isinf(bsdfWeight.y())) {
           Error("Not-a-number in bsdfweight");
@@ -203,11 +205,13 @@ Spectrum PathRendernetIntegrator::RecordedLi(const Scene *scene, const Renderer 
 
         // If the brdf has a diffuse component, we found our first
         // diffuse interaction. The path is no longer purely specular.
-        if (!foundRough && bsdf_has_diffuse > 0) {
+        // if (!foundRough && bsdf_has_diffuse) {
+        if (!foundRough && bsdf_has_diffuse && diffuseBounce) {
           // TODO BSDF_TRANSMISSION too?
           Spectrum bsdfWeightDiffuse = specularBounce ? Spectrum(0.0f) : 
             bsdf->f(wo, wi, BxDFType(BSDF_DIFFUSE|BSDF_REFLECTION)) * AbsDot(wi, n) / pdf;
           pathThroughputDiffuse *= bsdfWeightDiffuse;
+          // pathThroughputDiffuse *= bsdfWeight;
           foundRough = true;
         } else {
           pathThroughputDiffuse *= bsdfWeight;
@@ -216,7 +220,8 @@ Spectrum PathRendernetIntegrator::RecordedLi(const Scene *scene, const Renderer 
         // record value at first rough 
         if (sr && !recordedOutputValues && foundRough) {
           depth = hitDistance;
-          albedo = runningAlbedo*currAlbedo;
+          albedo = currAlbedo;
+          // albedo = runningAlbedo*currAlbedo;
           visibility = qr.visibility;
           recordedOutputValues = true;
           Normal ssn(n);
@@ -234,9 +239,10 @@ Spectrum PathRendernetIntegrator::RecordedLi(const Scene *scene, const Renderer 
             nrm = ssn;
           }
 
-        } else if (!foundRough) {
-          runningAlbedo *= currAlbedo;
-        }  // record values
+        } 
+        // else if (!foundRough) {
+        //   runningAlbedo *= currAlbedo;
+        // }  // record values
 
         if (bounces == 0) {
           albedo_at_first = currAlbedo;
