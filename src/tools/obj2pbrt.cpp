@@ -22,6 +22,7 @@
 #include <vector>
 #include <algorithm>
 #include <map>
+#include <cmath>
 
 namespace tinyobj {
 
@@ -1037,7 +1038,7 @@ int main(int argc, char *argv[]) {
     if (mesh.texcoords.size()) {
       auto tx_bounds = std::minmax_element(mesh.texcoords.begin(), mesh.texcoords.end());
       // fprintf(stderr, "normalizing mesh uv by %.10g %.10g (count %ld)\n", *tx_bounds.first, *tx_bounds.second, mesh.texcoords.size());
-      float bound =  fmax(fabs(*tx_bounds.first), fabs(*tx_bounds.second));
+      float bound =  fmax(std::fabs(*tx_bounds.first), std::abs((float)*tx_bounds.second));
       if(bound < 1e-5) {
         // fprintf(stderr, "mesh has all-nil uvs, skipping\n");
       } else {
