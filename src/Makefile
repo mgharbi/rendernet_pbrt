@@ -174,7 +174,7 @@ objs/tools_%.o: tools/%.cpp
 
 bin/pbrt: objs/main_pbrt.o objs/libpbrt.a
 	@echo "Linking $@"
-	@$(CXX) $(CXXFLAGS)-o $@ $^ $(LIBS)
+	@$(CXX) $(CXXFLAGS) -o $@ $^ $(LIBS)
 
 bin/%: objs/tools_%.o objs/libpbrt.a 
 	@echo "Linking $@"

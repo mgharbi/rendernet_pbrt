@@ -100,6 +100,7 @@ typedef unsigned __int64 uint64_t;
 #pragma warning (disable : 4267) // size_t -> unsigned int conversion
 #elif defined(PBRT_IS_APPLE)
 #else
+#include <cmath>
 #define isinf(f) (std::isinf((f)))
 #define isnan(f) (std::isnan((f)))
 #endif // PBRT_IS_WINDOWS
