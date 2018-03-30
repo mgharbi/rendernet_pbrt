@@ -1,8 +1,9 @@
 #include "samplerecord.h"
 #include <fstream>
 #include <iostream>
+#include <lz4frame.h>
 
-int SampleRecord::version = 20180325;
+int SampleRecord::version = 20180330;
 int SampleRecord::sample_features = 
   5   // dx, dy, u, v, t
   + 3*2 // rgb*(diffuse + specular)
@@ -105,7 +106,7 @@ void SampleRecord::check_sizes() {
 }
 
 void SampleRecord::write_rgb_buffer(
-    vector<RGBSpectrum> &src, std::ofstream &f, float clamp) {
+    vector<RGBSpectrum> &src, std::ostream &f, float clamp) {
   int npixels = tileSize*tileSize;
   float* tmp = new float[npixels*3];
   float rgb[3] = {0};
@@ -124,7 +125,7 @@ void SampleRecord::write_rgb_buffer(
   delete[] tmp;
 }
 
-void SampleRecord::write_sample_buffer(int sample_id, vector<float> &src, std::ofstream &f) {
+void SampleRecord::write_sample_buffer(int sample_id, vector<float> &src, std::ostream &f) {
   int npixels = tileSize*tileSize;
   float* tmp = new float[npixels];
   // convert to contiguous pixels
@@ -140,7 +141,7 @@ void SampleRecord::write_sample_buffer(int sample_id, vector<float> &src, std::o
 }
 
 void SampleRecord::write_rgb_sample_buffer(
-    int sample_id, vector<RGBSpectrum> &src, std::ofstream &f, float clamp) {
+    int sample_id, vector<RGBSpectrum> &src, std::ostream &f, float clamp) {
   int npixels = tileSize*tileSize;
   float* tmp = new float[npixels*3];
   float rgb[3] = {0};
@@ -161,7 +162,7 @@ void SampleRecord::write_rgb_sample_buffer(
   delete[] tmp;
 }
 
-void SampleRecord::write_normal_sample_buffer(int sample_id, vector<Normal> &src, std::ofstream &f) {
+void SampleRecord::write_normal_sample_buffer(int sample_id, vector<Normal> &src, std::ostream &f) {
   int npixels = tileSize*tileSize;
   float* tmp = new float[npixels*3];
   // convert to contiguous pixels
@@ -178,7 +179,7 @@ void SampleRecord::write_normal_sample_buffer(int sample_id, vector<Normal> &src
   delete[] tmp;
 }
 
-void SampleRecord::write_float_path_data(int sample_id, int count, vector<vector<float> > &src, std::ofstream &f) {
+void SampleRecord::write_float_path_data(int sample_id, int count, vector<vector<float> > &src, std::ostream &f) {
   int npixels = tileSize*tileSize;
   int n_proba = count*maxDepth;
   float* tmp = new float[npixels*n_proba];
@@ -197,7 +198,7 @@ void SampleRecord::write_float_path_data(int sample_id, int count, vector<vector
   delete[] tmp;
 }
 
-void SampleRecord::write_bt_sample_buffer(int sample_id, vector<vector<uint16_t> > &src, std::ofstream &f) {
+void SampleRecord::write_bt_sample_buffer(int sample_id, vector<vector<uint16_t> > &src, std::ostream &f) {
   int npixels = tileSize*tileSize;
   int n = maxDepth;
   uint16_t* tmp = new uint16_t[npixels*n];
@@ -243,6 +244,28 @@ void SampleRecord::normalize_probabilities() {
   }
 }
 
+int SampleRecord::write_compressed(std::stringstream &fi, std::ostream &f) {
+  int compsize = LZ4F_compressFrameBound(fi.tellp(), NULL);
+  if(compsize == 0) {
+    throw "could not compress";
+  }
+  const std::string tmp = fi.str();
+  const char* cstr = tmp.c_str();
+  char *dst = new char[compsize];
+
+  // int nbytes = LZ4_compress_limitedOutput(cstr, dst, fi.tellp(), compsize);
+  int nbytes = LZ4F_compressFrame(dst, compsize, cstr, fi.tellp(), NULL);
+  if(nbytes == 0) {
+    throw "could not compress";
+  }
+
+  f.write((char*)&nbytes, sizeof(int));
+  f.write(dst, nbytes);
+  delete[] dst;
+
+  return nbytes;
+}
+
 void SampleRecord::save(const char* fname) {
   std::ofstream f(fname, std::ios::binary);
 
@@ -282,36 +305,40 @@ void SampleRecord::save(const char* fname) {
     f.write((char*)&tile_y, sizeof(int));
   }
 
-  // float max_radiance = 100.0f;
+  std::stringstream sstream;
 
   // Write pixel data
-  write_rgb_buffer(ground_truth, f);
-  write_rgb_buffer(ground_truth_variance, f);
-  write_rgb_buffer(lowspp, f);
-  write_rgb_buffer(lowspp_variance, f);
+  write_rgb_buffer(ground_truth, sstream);
+  write_rgb_buffer(ground_truth_variance, sstream);
+  write_rgb_buffer(lowspp, sstream);
+  write_rgb_buffer(lowspp_variance, sstream);
+  int nb = write_compressed(sstream, f);
 
   // Write sample data
   for(int sample_id = 0; sample_id < sample_count; ++sample_id) {
-    // write_sample_buffer(sample_id, pixel_x, f);
-    // write_sample_buffer(sample_id, pixel_y, f);
-    write_sample_buffer(sample_id, subpixel_x, f);
-    write_sample_buffer(sample_id, subpixel_y, f);
-    write_sample_buffer(sample_id, lens_u, f);
-    write_sample_buffer(sample_id, lens_v, f);
-    write_sample_buffer(sample_id, time, f);
-    write_rgb_sample_buffer(sample_id, radiance_diffuse, f);
-    write_rgb_sample_buffer(sample_id, radiance_specular, f);
-    // write_rgb_sample_buffer(sample_id, radiance_diffuse_indirect, f);
-    write_normal_sample_buffer(sample_id, normal_at_first, f);
-    write_normal_sample_buffer(sample_id, normal, f);
-    write_sample_buffer(sample_id, depth_at_first, f);
-    write_sample_buffer(sample_id, depth, f);
-    write_sample_buffer(sample_id, visibility, f);
-    write_rgb_sample_buffer(sample_id, albedo_at_first, f);
-    write_rgb_sample_buffer(sample_id, albedo, f);
-    // write_float_path_data(sample_id, 4, probabilities, f);
-    write_float_path_data(sample_id, 2, light_directions, f);
-    write_bt_sample_buffer(sample_id, bounce_type, f);
+    sstream.seekp(0);
+    // write_sample_buffer(sample_id, pixel_x, sstream);
+    // write_sample_buffer(sample_id, pixel_y, sstream);
+    write_sample_buffer(sample_id, subpixel_x, sstream);
+    write_sample_buffer(sample_id, subpixel_y, sstream);
+    write_sample_buffer(sample_id, lens_u, sstream);
+    write_sample_buffer(sample_id, lens_v, sstream);
+    write_sample_buffer(sample_id, time, sstream);
+    write_rgb_sample_buffer(sample_id, radiance_diffuse, sstream);
+    write_rgb_sample_buffer(sample_id, radiance_specular, sstream);
+    // write_rgb_sample_buffer(sample_id, radiance_diffuse_indirect, sstream);
+    write_normal_sample_buffer(sample_id, normal_at_first, sstream);
+    write_normal_sample_buffer(sample_id, normal, sstream);
+    write_sample_buffer(sample_id, depth_at_first, sstream);
+    write_sample_buffer(sample_id, depth, sstream);
+    write_sample_buffer(sample_id, visibility, sstream);
+    write_rgb_sample_buffer(sample_id, albedo_at_first, sstream);
+    write_rgb_sample_buffer(sample_id, albedo, sstream);
+    // write_float_path_data(sample_id, 4, probabilities, sstream);
+    write_float_path_data(sample_id, 2, light_directions, sstream);
+    write_bt_sample_buffer(sample_id, bounce_type, sstream);
+
+    nb = write_compressed(sstream, f);
   }
   
   f.close();

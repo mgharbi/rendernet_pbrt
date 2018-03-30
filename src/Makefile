@@ -62,13 +62,13 @@ endif
 CC=gcc
 CXX=g++
 LD=$(CXX) $(OPT) $(MARCH)
-INCLUDE=-I. -Icore $(EXR_INCLUDES) $(TIFF_INCLUDES)
+INCLUDE=-I. -Icore $(EXR_INCLUDES) $(TIFF_INCLUDES) -I/usr/include
 WARN=-Wall
 CWD=$(shell pwd)
 CXXFLAGS=$(OPT) $(MARCH) $(INCLUDE) $(WARN) $(DEFS)
 CCFLAGS=$(CXXFLAGS)
 # CXXFLAGS+= -std=c++11
-LIBS=$(LEXLIB) $(EXR_LIBDIR) $(EXRLIBS) -lm 
+LIBS=$(LEXLIB) $(EXR_LIBDIR) $(EXRLIBS) -lm -llz4
 
 LIB_CSRCS=core/targa.c
 LIB_CXXSRCS  = $(wildcard core/*.cpp) core/pbrtlex.cpp core/pbrtparse.cpp

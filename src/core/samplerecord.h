@@ -5,6 +5,7 @@
 #include "core/spectrum.h"
 #include "core/diffgeom.h"
 #include <vector>
+#include <sstream>
 
 using std::vector;
 
@@ -106,13 +107,15 @@ private:
   void normalize_distances();
   void normalize_probabilities();
 
-  void write_rgb_buffer(vector<RGBSpectrum> &src, std::ofstream &f, float clamp = -1.0f);
+  void write_rgb_buffer(vector<RGBSpectrum> &src, std::ostream &f, float clamp = -1.0f);
 
-  void write_sample_buffer(int sidx, vector<float> &src, std::ofstream &f);
-  void write_rgb_sample_buffer(int sidx, vector<RGBSpectrum> &src, std::ofstream &f, float clamp = -1.0f);
-  void write_normal_sample_buffer(int sidx, vector<Normal> &src, std::ofstream &f);
-  void write_float_path_data(int sidx, int count, vector<vector<float> > &src, std::ofstream &f);
-  void write_bt_sample_buffer(int sidx, vector<vector<uint16_t> > &src, std::ofstream &f);
+  int write_compressed(std::stringstream &fi, std::ostream &f);
+
+  void write_sample_buffer(int sidx, vector<float> &src, std::ostream &f);
+  void write_rgb_sample_buffer(int sidx, vector<RGBSpectrum> &src, std::ostream &f, float clamp = -1.0f);
+  void write_normal_sample_buffer(int sidx, vector<Normal> &src, std::ostream &f);
+  void write_float_path_data(int sidx, int count, vector<vector<float> > &src, std::ostream &f);
+  void write_bt_sample_buffer(int sidx, vector<vector<uint16_t> > &src, std::ostream &f);
 
 };
 
