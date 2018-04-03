@@ -252,7 +252,7 @@ RendernetRenderer::RendernetRenderer(Sampler *s, Camera *c,
     recordedSamples = recSamples;
     useCameraSpaceNormals = useCamSpaceNrm;
 
-    maxDepth = dynamic_cast<PathRendernetIntegrator*>(surfaceIntegrator)->maxDepth;
+    maxDepth = surfaceIntegrator->maxDepth();
 }
 
 
@@ -370,6 +370,7 @@ Spectrum RendernetRenderer::RecordedLi(const Scene *scene,
           sr->radiance_diffuse.push_back(zero);
           sr->radiance_diffuse_indirect.push_back(zero);
           sr->radiance_specular.push_back(Li); // We only have the scene lights/envmap contributions
+          printf("using maxdepth %f\n", sr->maxDepth);
           std::vector<float> p(4*sr->maxDepth);
           sr->probabilities.push_back(p);
           std::vector<float> ld(2*sr->maxDepth);

@@ -73,6 +73,7 @@ public:
         const Sample *sample, RNG &rng, MemoryArena &arena, SampleRecord *sw, 
         Camera *camera) const {
       return Spectrum(0.0f); };
+    virtual int maxDepth() { return 0; };
 };
 
 

@@ -237,6 +237,8 @@ void SampleRecord::normalize_probabilities() {
   const int n_proba = 4*maxDepth;
   const float eps = 1e-8f;
   const float nrm = 30.0f;
+  std::cout << "proba " << depth.size() << "\n";
+  std::cout << "proba " << probabilities.size() << "\n";
   for(int i = 0; i < npixels*sample_count; ++i)
   for(int j = 0; j < n_proba; ++j) {
     float p = probabilities[i][j];

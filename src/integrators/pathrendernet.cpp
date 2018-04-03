@@ -50,10 +50,9 @@ Spectrum PathRendernetIntegrator::RecordedLi(const Scene *scene, const Renderer 
     Spectrum albedo = 0.f;
     Spectrum albedo_at_first = 0.f;
 
-    std::vector<float> probabilities(4*(maxDepth+1), 0.0f);
-    std::vector<float> light_directions(2*(maxDepth+1), 0.0f);
-
-    std::vector<uint16_t> bounce_type((maxDepth+1), 0);
+    std::vector<float> probabilities(4*(maxDepth_+1), 0.0f);
+    std::vector<float> light_directions(2*(maxDepth_+1), 0.0f);
+    std::vector<uint16_t> bounce_type((maxDepth_+1), 0);
 
     for (int bounces = 0; ; ++bounces) {
         // Possibly add emitted light at path vertex
@@ -258,7 +257,7 @@ Spectrum PathRendernetIntegrator::RecordedLi(const Scene *scene, const Renderer 
         //         break;
         //     pathThroughput /= continueProbability;
         // }
-        if (bounces == maxDepth)
+        if (bounces == maxDepth_)
             break;
 
         // Find next vertex of path
@@ -339,6 +338,5 @@ Spectrum PathRendernetIntegrator::RecordedLi(const Scene *scene, const Renderer 
 
 PathRendernetIntegrator *CreatePathRendernetSurfaceIntegrator(const ParamSet &params) {
     int maxDepth = params.FindOneInt("maxdepth", 5);
-    printf("Max depth %d\n", maxDepth);
     return new PathRendernetIntegrator(maxDepth);
 }

@@ -20,9 +20,10 @@ public:
         const RayDifferential &ray, const Intersection &isect,
         const Sample *sample, RNG &rng, MemoryArena &arena, SampleRecord *sw, Camera *camera) const;
     void RequestSamples(Sampler *sampler, Sample *sample, const Scene *scene);
-    PathRendernetIntegrator(int md) { maxDepth = md; }
-    int maxDepth;
+    PathRendernetIntegrator(int md) { maxDepth_ = md; }
+    virtual int maxDepth() {return maxDepth_;};
 private:
+    int maxDepth_;
     // PathRendernetIntegrator Private Data
 #define SAMPLE_DEPTH 3
     LightSampleOffsets lightSampleOffsets[SAMPLE_DEPTH];

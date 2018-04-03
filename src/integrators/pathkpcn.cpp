@@ -167,7 +167,7 @@ Spectrum PathKPCNIntegrator::RecordedLi(const Scene *scene, const Renderer *rend
                 break;
             pathThroughput /= continueProbability;
         }
-        if (bounces == maxDepth)
+        if (bounces == maxDepth_)
             break;
 
         // Find next vertex of path
@@ -191,13 +191,24 @@ Spectrum PathKPCNIntegrator::RecordedLi(const Scene *scene, const Renderer *rend
 
     if (sr) {
       sr->normal.push_back(nrm);
+      sr->normal_at_first.push_back(nrm);
       sr->depth.push_back(depth);
+      sr->depth_at_first.push_back(depth);
       sr->visibility.push_back(visibility.y());
       sr->albedo.push_back(albedo);
+      sr->albedo_at_first.push_back(albedo);
 
       sr->radiance_diffuse.push_back(Ldiffuse);
       sr->radiance_diffuse_indirect.push_back(Spectrum(0.0f));
       sr->radiance_specular.push_back(L-Ldiffuse);
+
+      // Fill our features with dummies
+      std::vector<float> probabilities(4*(maxDepth_+1), 0.0f);
+      std::vector<float> light_directions(2*(maxDepth_+1), 0.0f);
+      std::vector<uint16_t> bounce_type((maxDepth_+1), 0);
+      sr->probabilities.push_back(probabilities);
+      sr->light_directions.push_back(light_directions);
+      sr->bounce_type.push_back(bounce_type);
     }
 
     return L;
@@ -206,5 +217,6 @@ Spectrum PathKPCNIntegrator::RecordedLi(const Scene *scene, const Renderer *rend
 
 PathKPCNIntegrator *CreatePathKPCNSurfaceIntegrator(const ParamSet &params) {
     int maxDepth = params.FindOneInt("maxdepth", 5);
+    printf("Max depth %d\n", maxDepth);
     return new PathKPCNIntegrator(maxDepth);
 }
