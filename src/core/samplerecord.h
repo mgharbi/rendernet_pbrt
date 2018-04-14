@@ -4,6 +4,7 @@
 #include "pbrt.h"
 #include "core/spectrum.h"
 #include "core/diffgeom.h"
+#include "core/transform.h"
 #include <vector>
 #include <sstream>
 
@@ -12,34 +13,20 @@ using std::vector;
 class LightQueryRecord {
 
 public:
-  LightQueryRecord() 
-    : visibility(0.0f), diffuse_lighting(0.0f), theta(0.f), phi(0.f)
+  LightQueryRecord(Transform t) 
+    : visibility(0.0f), diffuse_lighting(0.0f), world2cam(t), theta(0.f), phi(0.f)
   { memset(pdfs, 0, sizeof(float)*4); };
   Spectrum visibility;
   Spectrum diffuse_lighting;
+  Transform world2cam;
+
   // Spherical coordinates of light_sample
   float theta;
   float phi;
   // Direct/BSDF light sampling pdf
   float pdfs[4]; // (light_pdf, bsdf_pdf)_light, (light_pdf, bsdf_pdf)_bsdf
 
-  void set_angles(Vector wi) {
-    // spherical coordinates of light direction
-    float nrm = sqrt(wi.x*wi.x + wi.y*wi.y);
-    if(nrm == 0.0f) {
-      theta = 0.0f;
-    } else {
-      theta = atan2(wi.y, wi.x);
-    }
-
-    if (nrm == 0.0f && wi.z == 0) {
-      phi = 0.0f;
-    } else {
-      phi = atan2(nrm, wi.z);
-    }
-    theta /= M_PI;
-    phi /= M_PI;
-  }
+  void set_angles(Vector wi);
 };
 
 class SampleRecord {

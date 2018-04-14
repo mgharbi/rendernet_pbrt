@@ -77,7 +77,10 @@ Spectrum PathKPCNIntegrator::RecordedLi(const Scene *scene, const Renderer *rend
         Vector wo = -ray.d;
         Spectrum contrib(0.0f);
         Spectrum diffuse_lighting(0.0f);
-        LightQueryRecord qr;
+        Transform tx;
+        camera->CameraToWorld.Interpolate(sample->time, &tx);
+        tx = Inverse(tx);
+        LightQueryRecord qr(tx);
         if (bounces < SAMPLE_DEPTH) {
             contrib = UniformSampleOneLight(scene, renderer, arena, p, n, wo,
                      isectp->rayEpsilon, ray.time, bsdf, sample, rng,

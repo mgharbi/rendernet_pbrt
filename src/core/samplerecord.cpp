@@ -1,4 +1,5 @@
 #include "samplerecord.h"
+#include "pbrt.h"
 #include <fstream>
 #include <iostream>
 #include <lz4frame.h>
@@ -15,6 +16,28 @@ int SampleRecord::sample_features =
   + 3   // albedo_at_first
   + 3;  // albedo
 int SampleRecord::pixel_features = 3*4; // rgb * (gt + std + lowspp + lowspp_std)
+
+void LightQueryRecord::set_angles(Vector wi) {
+    // spherical coordinates of light direction
+    // in camera space
+    wi = world2cam(wi);
+
+    float nrm = sqrt(wi.x*wi.x + wi.y*wi.y);
+    
+    if(nrm == 0.0f) {
+      theta = 0.0f;
+    } else {
+      theta = atan2(wi.y, wi.x);
+    }
+
+    if (nrm == 0.0f && wi.z == 0) {
+      phi = 0.0f;
+    } else {
+      phi = atan2(nrm, wi.z);
+    }
+    theta /= M_PI;
+    phi /= M_PI;
+}
 
 SampleRecord::SampleRecord(
     int x, int y, int tilesize, int sample_count, int spp, int maxDepth,
