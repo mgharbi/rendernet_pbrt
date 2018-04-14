@@ -37,8 +37,7 @@ Spectrum PathKPCNIntegrator::RecordedLi(const Scene *scene, const Renderer *rend
     const Intersection *isectp = &isect;
 
     Spectrum runningAlbedo = 1.f;
-    Spectrum visibility = 0.f;
-    Spectrum visibilityRecord = 0.0f;
+    bool isLightVisible = false;
 
     bool recordedOutputValues = false;
     float hitDistance = 0.0f;
@@ -93,9 +92,9 @@ Spectrum PathKPCNIntegrator::RecordedLi(const Scene *scene, const Renderer *rend
         }
 
         // Binarize visibility to match KPCN's Tungsten output:
-        if (qr.visibility != 0.0f) {
-          qr.visibility = 1.0f;
-        }
+        // if (qr.visibility != 0.0f) {
+        //   qr.visibility = 1.0f;
+        // }
 
         if (!foundRough && bsdf_has_diffuse) {
           L += contrib*pathThroughput;
@@ -125,7 +124,7 @@ Spectrum PathKPCNIntegrator::RecordedLi(const Scene *scene, const Renderer *rend
           depth = hitDistance;
           nrm = n;
           albedo = 0.0f;
-          visibility = qr.visibility;
+          isLightVisible = qr.isLightVisible;
           recordedOutputValues = true;
 
           break;
@@ -153,7 +152,7 @@ Spectrum PathKPCNIntegrator::RecordedLi(const Scene *scene, const Renderer *rend
           depth = hitDistance;
           nrm = n;
           albedo = runningAlbedo*bsdfWeight;
-          visibility = qr.visibility;
+          isLightVisible = qr.isLightVisible;
           recordedOutputValues = true;
 
         } else if (!foundRough) {
@@ -197,7 +196,7 @@ Spectrum PathKPCNIntegrator::RecordedLi(const Scene *scene, const Renderer *rend
       sr->normal_at_first.push_back(nrm);
       sr->depth.push_back(depth);
       sr->depth_at_first.push_back(depth);
-      sr->visibility.push_back(visibility.y());
+      sr->visibility.push_back(isLightVisible ? 1.0 : 0.0);
       sr->albedo.push_back(albedo);
       sr->albedo_at_first.push_back(albedo);
 

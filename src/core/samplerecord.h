@@ -14,9 +14,10 @@ class LightQueryRecord {
 
 public:
   LightQueryRecord(Transform t) 
-    : visibility(0.0f), diffuse_lighting(0.0f), world2cam(t), theta(0.f), phi(0.f)
+    : isLightVisible(false), diffuse_lighting(0.0f), world2cam(t), theta(0.f), phi(0.f)
   { memset(pdfs, 0, sizeof(float)*4); };
-  Spectrum visibility;
+  // Spectrum visibility;
+  bool isLightVisible;
   Spectrum diffuse_lighting;
   Transform world2cam;
 

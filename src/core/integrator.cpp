@@ -122,13 +122,16 @@ Spectrum EstimateDirect(const Scene *scene, const Renderer *renderer,
         const BSDFSample &bsdfSample, BxDFType flags, LightQueryRecord *qr) {
     Spectrum Ld(0.);
     Spectrum Ld_diffuse(0.);
-    Spectrum avg_transmittance(0.);
     // Sample light source with multiple importance sampling
     Vector wi;
     float lightPdf, bsdfPdf;
     VisibilityTester visibility;
     Spectrum Li = light->Sample_L(p, rayEpsilon, lightSample, time,
                                   &wi, &lightPdf, &visibility);
+
+    if (visibility.Unoccluded(scene)) {
+      qr->isLightVisible = true;
+    }
 
     if (qr) {
       qr->pdfs[0] = lightPdf;
@@ -146,7 +149,6 @@ Spectrum EstimateDirect(const Scene *scene, const Renderer *renderer,
             if (light->IsDeltaLight()) {
                 Ld += f * Li * (AbsDot(wi, n) / lightPdf);
                 Ld_diffuse += f_diffuse * Li * (AbsDot(wi, n) / lightPdf);
-                avg_transmittance += transmittance;
             }
             else {
                 bsdfPdf = bsdf->Pdf(wo, wi, flags);
@@ -156,7 +158,6 @@ Spectrum EstimateDirect(const Scene *scene, const Renderer *renderer,
                 float weight = PowerHeuristic(1, lightPdf, 1, bsdfPdf);
                 Ld += f * Li * (AbsDot(wi, n) * weight / lightPdf);
                 Ld_diffuse += f_diffuse * Li * (AbsDot(wi, n) * weight / lightPdf);
-                avg_transmittance += transmittance * weight / lightPdf;
             }
         }
     }
@@ -179,7 +180,6 @@ Spectrum EstimateDirect(const Scene *scene, const Renderer *renderer,
 
                 if (lightPdf == 0.) {
                   if (qr) {
-                    qr->visibility = avg_transmittance;
                     qr->diffuse_lighting = Ld_diffuse;
                   }
                   return Ld;
@@ -197,17 +197,18 @@ Spectrum EstimateDirect(const Scene *scene, const Renderer *renderer,
             else
                 Li = light->Le(ray);
             if (!Li.IsBlack()) {
+                if (qr) {
+                  qr->isLightVisible = true;
+                }
                 Spectrum transmittance = renderer->Transmittance(scene, ray, NULL, rng, arena);
                 Li *=  transmittance;
                 Ld += f * Li * AbsDot(wi, n) * weight / bsdfPdf;
                 Ld_diffuse += f_diffuse * Li * AbsDot(wi, n) * weight / bsdfPdf;
-                avg_transmittance += transmittance * weight / bsdfPdf;
             }
         }
     }
 
     if (qr) {
-      qr->visibility = avg_transmittance;
       qr->diffuse_lighting = Ld_diffuse;
     }
 
