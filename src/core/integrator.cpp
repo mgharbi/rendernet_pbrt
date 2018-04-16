@@ -129,11 +129,11 @@ Spectrum EstimateDirect(const Scene *scene, const Renderer *renderer,
     Spectrum Li = light->Sample_L(p, rayEpsilon, lightSample, time,
                                   &wi, &lightPdf, &visibility);
 
-    if (visibility.Unoccluded(scene)) {
-      qr->isLightVisible = true;
-    }
-
     if (qr) {
+      if (visibility.Unoccluded(scene)) {
+        qr->isLightVisible = true;
+      }
+
       qr->pdfs[0] = lightPdf;
       qr->set_angles(wi);
       // TODO: set angles for MIS
