@@ -46,7 +46,7 @@ SampleRecord::SampleRecord(
   : tile_x(x), tile_y(y), tileSize(tilesize), sample_count(sample_count), spp(spp), maxDepth(maxDepth+1),  // We store path 0...maxDepth
   image_width(image_width), image_height(image_height), scene_radius(scene_radius),
   focal_distance(focal_distance), aperture_radius(aperture_radius), fov(fov),
-  useCameraSpaceNormals(useCameraSpaceNormals)
+  useCameraSpaceNormals(useCameraSpaceNormals), is_kpcn(false)
 {
   // prefix
   pixel_x.reserve(tileSize*tileSize*sample_count);
@@ -294,8 +294,11 @@ void SampleRecord::save(const char* fname) {
 
   check_sizes();
 
-  normalize_distances();
-  normalize_probabilities();
+  // Keep distances unnormalized for NFOR and KPCN
+  if(!is_kpcn) {
+    normalize_distances();
+    normalize_probabilities();
+  }
 
   if (sample_count <= 0 || sample_count > spp)
     Error("saved samples should be higher than 0 and lower than spp %d, got %d.",

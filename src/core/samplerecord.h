@@ -42,6 +42,7 @@ public:
       float focal_distance, float aperture_radius, float fov,
       bool useCameraSpaceNormals);
   void save(const char* fname);
+  void set_kpcn() { is_kpcn = true; };
 
   int tile_x;
   int tile_y;
@@ -90,6 +91,7 @@ public:
   vector<RGBSpectrum> lowspp_variance;
 
 private:
+  bool is_kpcn;
   void check_sizes();
 
   void normalize_distances();

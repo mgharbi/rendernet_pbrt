@@ -30,6 +30,7 @@ public:
     int recordedSamples;
     int maxDepth;
     bool useCameraSpaceNormals;
+    bool is_kpcn() const;
 private:
     // RendernetRenderer Private Data
     Sampler *sampler;

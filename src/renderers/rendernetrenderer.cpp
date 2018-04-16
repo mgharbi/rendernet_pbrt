@@ -34,6 +34,7 @@
 #include "stdafx.h"
 #include "renderers/rendernetrenderer.h"
 #include "integrators/pathrendernet.h"
+#include "integrators/pathkpcn.h"
 #include "scene.h"
 #include "film.h"
 #include "volume.h"
@@ -44,6 +45,8 @@
 #include "intersection.h"
 #include "montecarlo.h"
 #include "cameras/perspective.h"
+
+#include <typeinfo>
 
 static uint32_t hash(char *key, uint32_t len)
 {
@@ -58,6 +61,14 @@ static uint32_t hash(char *key, uint32_t len)
     hash += (hash << 15);
     return hash;
 } 
+
+bool RendernetRenderer::is_kpcn() const {
+  PathKPCNIntegrator* p = dynamic_cast<PathKPCNIntegrator*>(surfaceIntegrator);
+  if(p) {
+    return true;
+  }
+  return false;
+}
 
 // RendernetRendererTask Definitions
 void RendernetRendererTask::Run() {
@@ -101,6 +112,10 @@ void RendernetRendererTask::Run() {
         ((PerspectiveCamera*) camera)->fov,
         renderer->useCameraSpaceNormals
         );
+
+    if(renderer->is_kpcn()) {
+      sr->set_kpcn();
+    }
 
     // Get samples from _Sampler_ and update image
     int sampleCount;
