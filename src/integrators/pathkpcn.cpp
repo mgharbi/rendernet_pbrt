@@ -20,11 +20,11 @@ void PathKPCNIntegrator::RequestSamples(Sampler *sampler, Sample *sample,
 Spectrum PathKPCNIntegrator::Li(const Scene *scene, const Renderer *renderer,
         const RayDifferential &r, const Intersection &isect,
         const Sample *sample, RNG &rng, MemoryArena &arena) const {
-  return RecordedLi(scene, renderer, r, isect, sample, rng, arena, NULL, NULL);
+  return RecordedLi(scene, renderer, r, isect, sample, rng, arena, NULL, NULL).L;
 }
 
 
-Spectrum PathKPCNIntegrator::RecordedLi(const Scene *scene, const Renderer *renderer,
+RadianceQueryRecord PathKPCNIntegrator::RecordedLi(const Scene *scene, const Renderer *renderer,
         const RayDifferential &r, const Intersection &isect,
         const Sample *sample, RNG &rng, MemoryArena &arena, SampleRecord *sr, Camera* camera) const {
     // Declare common path integration variables
@@ -213,7 +213,7 @@ Spectrum PathKPCNIntegrator::RecordedLi(const Scene *scene, const Renderer *rend
       sr->bounce_type.push_back(bounce_type);
     }
 
-    return L;
+    return RadianceQueryRecord(L, Spectrum(0.0f));
 }
 
 

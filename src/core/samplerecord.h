@@ -10,6 +10,14 @@
 
 using std::vector;
 
+class RadianceQueryRecord {
+public:
+  RadianceQueryRecord() : L(0.0f), diffuse_L(0.0f) {};
+  RadianceQueryRecord(Spectrum a, Spectrum b) : L(a), diffuse_L(b) {};
+  Spectrum L;
+  Spectrum diffuse_L;
+};
+
 class LightQueryRecord {
 
 public:
@@ -86,6 +94,7 @@ public:
 
   // suffix
   vector<RGBSpectrum> ground_truth;
+  vector<RGBSpectrum> ground_truth_diffuse;
   vector<RGBSpectrum> ground_truth_variance;
   vector<RGBSpectrum> lowspp;
   vector<RGBSpectrum> lowspp_variance;

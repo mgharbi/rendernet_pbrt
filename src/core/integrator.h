@@ -68,11 +68,10 @@ public:
     virtual Spectrum Li(const Scene *scene, const Renderer *renderer,
         const RayDifferential &ray, const Intersection &isect,
         const Sample *sample, RNG &rng, MemoryArena &arena) const = 0;
-    virtual Spectrum RecordedLi(const Scene *scene, const Renderer *renderer,
+    virtual RadianceQueryRecord RecordedLi(const Scene *scene, const Renderer *renderer,
         const RayDifferential &ray, const Intersection &isect,
         const Sample *sample, RNG &rng, MemoryArena &arena, SampleRecord *sw, 
-        Camera *camera) const {
-      return Spectrum(0.0f); };
+        Camera *camera) const {return RadianceQueryRecord(); };
     virtual int maxDepth() { return 0; };
 };
 

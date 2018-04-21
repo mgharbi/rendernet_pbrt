@@ -21,10 +21,10 @@ void PathRendernetIntegrator::RequestSamples(Sampler *sampler, Sample *sample,
 Spectrum PathRendernetIntegrator::Li(const Scene *scene, const Renderer *renderer,
         const RayDifferential &r, const Intersection &isect,
         const Sample *sample, RNG &rng, MemoryArena &arena) const {
-  return RecordedLi(scene, renderer, r, isect, sample, rng, arena, NULL, NULL);
+  return RecordedLi(scene, renderer, r, isect, sample, rng, arena, NULL, NULL).L;
 }
 
-Spectrum PathRendernetIntegrator::RecordedLi(const Scene *scene, const Renderer *renderer,
+RadianceQueryRecord PathRendernetIntegrator::RecordedLi(const Scene *scene, const Renderer *renderer,
         const RayDifferential &r, const Intersection &isect,
         const Sample *sample, RNG &rng, MemoryArena &arena, SampleRecord *sr, Camera* camera) const {
     // Declare common path integration variables
@@ -36,20 +36,16 @@ Spectrum PathRendernetIntegrator::RecordedLi(const Scene *scene, const Renderer 
     Intersection localIsect;
     const Intersection *isectp = &isect;
 
-    // Spectrum runningAlbedo = 1.f;
+    // Default values
     bool isLightVisible = false;
-
     bool recordedOutputValues = false;
     float hitDistance = 0.0f;
-
-    // Default values
     Normal nrm;
     Normal nrm_at_first;
     float depth = -1.0f;
     float depth_at_first = -1.0f;
     Spectrum albedo = 0.f;
     Spectrum albedo_at_first = 0.f;
-
     std::vector<float> probabilities(4*(maxDepth_+1), 0.0f);
     std::vector<float> light_directions(2*(maxDepth_+1), 0.0f);
     std::vector<uint16_t> bounce_type((maxDepth_+1), 0);
@@ -67,23 +63,19 @@ Spectrum PathRendernetIntegrator::RecordedLi(const Scene *scene, const Renderer 
           }
         }
 
-        // Sample illumination from lights to find path contribution
         BSDF *bsdf = isectp->GetBSDF(ray, arena);
         const Point &p = bsdf->dgShading.p;
         const Normal &n = bsdf->dgShading.nn;
-
         bool bsdf_has_diffuse = false;
-        if (bsdf) {
-          bsdf_has_diffuse =
-              (bsdf->NumComponents(BxDFType(BSDF_DIFFUSE|BSDF_REFLECTION)) > 0) ||
-              (bsdf->NumComponents(BxDFType(BSDF_DIFFUSE|BSDF_TRANSMISSION)) > 0) ||
-              (bsdf->NumComponents(BxDFType(BSDF_GLOSSY|BSDF_REFLECTION)) > 0) ||
-              (bsdf->NumComponents(BxDFType(BSDF_GLOSSY|BSDF_TRANSMISSION)) > 0);
-        }
+        bsdf_has_diffuse =
+            (bsdf->NumComponents(BxDFType(BSDF_DIFFUSE|BSDF_REFLECTION)) > 0) |
+            (bsdf->NumComponents(BxDFType(BSDF_GLOSSY|BSDF_REFLECTION)) > 0);
+            // (bsdf->NumComponents(BxDFType(BSDF_GLOSSY|BSDF_TRANSMISSION)) > 0);
 
         Vector depth_vector = p-ray.o;
         hitDistance += depth_vector.Length();
 
+        // Sample illumination from lights to find path contribution
         Vector wo = -ray.d;
         Spectrum contrib(0.0f);
         Spectrum diffuse_lighting(0.0f);
@@ -104,17 +96,16 @@ Spectrum PathRendernetIntegrator::RecordedLi(const Scene *scene, const Renderer 
         
         L += contrib*pathThroughput;
         if (!foundRough && bsdf_has_diffuse) {
-          // Ldiffuse += qr.diffuse_lighting*pathThroughputDiffuse;
-            Ldiffuse += contrib*pathThroughputDiffuse;
+          Ldiffuse += qr.diffuse_lighting*pathThroughputDiffuse;
+          // Ldiffuse += contrib*pathThroughputDiffuse;
+          if (bounces > 0)  {
+            Ldiffuse_indirect += qr.diffuse_lighting*pathThroughputDiffuse;
+            // Ldiffuse_indirect += contrib*pathThroughputDiffuse;
+          }
+        } else if (foundRough) {
+          Ldiffuse += contrib*pathThroughputDiffuse;
           if (bounces > 0)  {
             Ldiffuse_indirect += contrib*pathThroughputDiffuse;
-          }
-        } else {
-          if (foundRough) {
-            Ldiffuse += contrib*pathThroughputDiffuse;
-            if (bounces > 0)  {
-              Ldiffuse_indirect += contrib*pathThroughputDiffuse;
-            }
           }
         }
         std::copy(qr.pdfs, qr.pdfs+4, probabilities.begin()+4*bounces);
@@ -138,7 +129,7 @@ Spectrum PathRendernetIntegrator::RecordedLi(const Scene *scene, const Renderer 
         bounce_type[bounces] = flags;
         Spectrum currAlbedo = bsdf->K();
 
-        // Save depth and normal at first bounce
+        // Save depth, normal, albedo at first bounce
         if (bounces == 0) {
           Normal ssn(n);
           if (Dot(ssn, ray.d) < 0) { //face forward
@@ -157,62 +148,20 @@ Spectrum PathRendernetIntegrator::RecordedLi(const Scene *scene, const Renderer 
           albedo_at_first = currAlbedo;
         }
 
-        if (f.IsBlack() || pdf == 0.) { // Stop propagation
-          if(!recordedOutputValues) {
-            depth = hitDistance;
-            albedo = currAlbedo;
-            isLightVisible = qr.isLightVisible;
-
-            Normal ssn(n);
-            if (Dot(ssn, ray.d) < 0) { //face forward
-              ssn.x *= -1.0f;
-              ssn.y *= -1.0f;
-              ssn.z *= -1.0f;
-            }
-
-            if(sr && sr->useCameraSpaceNormals) {
-              Transform tx;
-              camera->CameraToWorld.Interpolate(sample->time, &tx);
-              nrm = Inverse(tx)(ssn);
-            } else {
-              nrm = ssn;
-            }
-            recordedOutputValues = true;
-          }
-          break;
-        } 
-
-        Spectrum bsdfWeight =  f * AbsDot(wi, n) / pdf;
-        pathThroughput *= bsdfWeight;
-
-        specularBounce = (flags & BSDF_SPECULAR) != 0;
-        bool diffuseBounce = (flags & BSDF_DIFFUSE) != 0;
-
-        if (bsdfWeight.HasNaNs() || isinf(bsdfWeight.y())) {
-          Error("Not-a-number in bsdfweight");
-          // TODO: should be saving here
-          // break;
-        }
-
         // If the brdf has a diffuse component, we found our first
         // diffuse interaction. The path is no longer purely specular.
+        bool isFirstRough = false;
         if (!foundRough && bsdf_has_diffuse) {
-        // if (!foundRough && bsdf_has_diffuse && diffuseBounce) {
-          // TODO BSDF_TRANSMISSION too?
-          Spectrum bsdfWeightDiffuse = specularBounce ? Spectrum(0.0f) : 
-            bsdf->f(wo, wi, BxDFType(BSDF_DIFFUSE|BSDF_REFLECTION)) * AbsDot(wi, n) / pdf;
-          pathThroughputDiffuse *= bsdfWeightDiffuse;
           foundRough = true;
-        } else {
-          pathThroughputDiffuse *= bsdfWeight;
-        }
-        
+          bool isFirstRough = true;
+        } 
+
         // record value at first rough 
         if (sr && !recordedOutputValues && foundRough) {
+          recordedOutputValues = true;
           depth = hitDistance;
           albedo = currAlbedo;
           isLightVisible = qr.isLightVisible;
-          recordedOutputValues = true;
           Normal ssn(n);
           if (Dot(ssn, ray.d) < 0) { //face forward
             ssn.x *= -1.0f;
@@ -228,6 +177,27 @@ Spectrum PathRendernetIntegrator::RecordedLi(const Scene *scene, const Renderer 
             nrm = ssn;
           }
         } 
+
+        if (f.IsBlack() || pdf == 0.) { // Stop propagation
+          break;
+        } 
+
+        Spectrum bsdfWeight =  f * AbsDot(wi, n) / pdf;
+        pathThroughput *= bsdfWeight;
+
+        specularBounce = (flags & BSDF_SPECULAR) != 0;
+
+        if (bsdfWeight.HasNaNs() || isinf(bsdfWeight.y())) {
+          Error("Not-a-number in bsdfweight");
+        }
+
+        if(isFirstRough) {
+          Spectrum bsdfWeightDiffuse = specularBounce ? Spectrum(0.0f) : 
+            bsdf->f(wo, wi, BxDFType(BSDF_DIFFUSE|BSDF_REFLECTION|BSDF_GLOSSY)) * AbsDot(wi, n) / pdf;
+          pathThroughputDiffuse *= bsdfWeightDiffuse;
+        } else {
+          pathThroughputDiffuse *= bsdfWeight;
+        }
         
         // Scatter
         ray = RayDifferential(p, wi, ray, isectp->rayEpsilon);
@@ -307,7 +277,7 @@ Spectrum PathRendernetIntegrator::RecordedLi(const Scene *scene, const Renderer 
       sr->bounce_type.push_back(bounce_type);
     }
 
-    return L;
+    return RadianceQueryRecord(L, Ldiffuse);
 }
 
 

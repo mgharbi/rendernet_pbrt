@@ -8,6 +8,7 @@
 // integrators/pathrendernet.h*
 #include "pbrt.h"
 #include "integrator.h"
+#include "samplerecord.h"
 
 // PathRendernetIntegrator Declarations
 class PathRendernetIntegrator : public SurfaceIntegrator {
@@ -16,7 +17,7 @@ public:
     Spectrum Li(const Scene *scene, const Renderer *renderer,
         const RayDifferential &ray, const Intersection &isect,
         const Sample *sample, RNG &rng, MemoryArena &arena) const;
-    Spectrum RecordedLi(const Scene *scene, const Renderer *renderer,
+    RadianceQueryRecord RecordedLi(const Scene *scene, const Renderer *renderer,
         const RayDifferential &ray, const Intersection &isect,
         const Sample *sample, RNG &rng, MemoryArena &arena, SampleRecord *sw, Camera *camera) const;
     void RequestSamples(Sampler *sampler, Sample *sample, const Scene *scene);

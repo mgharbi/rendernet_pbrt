@@ -191,11 +191,12 @@ Spectrum EstimateDirect(const Scene *scene, const Renderer *renderer,
             Spectrum Li(0.f);
             RayDifferential ray(p, wi, rayEpsilon, INFINITY, time);
             if (scene->Intersect(ray, &lightIsect)) {
-                if (lightIsect.primitive->GetAreaLight() == light)
+                if (lightIsect.primitive->GetAreaLight() == light) {
                     Li = lightIsect.Le(-wi);
+                }
+            } else {
+              Li = light->Le(ray);
             }
-            else
-                Li = light->Le(ray);
             if (!Li.IsBlack()) {
                 if (qr) {
                   qr->isLightVisible = true;

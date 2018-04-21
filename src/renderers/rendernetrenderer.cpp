@@ -91,6 +91,7 @@ void RendernetRendererTask::Run() {
     Sample *samples = origSample->Duplicate(maxSamples);
     RayDifferential *rays = new RayDifferential[maxSamples];
     Spectrum *Ls = new Spectrum[maxSamples];
+    Spectrum *diffuse_Ls = new Spectrum[maxSamples];
     Spectrum *Ts = new Spectrum[maxSamples];
     Intersection *isects = new Intersection[maxSamples];
 
@@ -124,6 +125,7 @@ void RendernetRendererTask::Run() {
         int n_added = 0;
         int n_added_lowspp = 0;
         Spectrum radiance = 0.0f;
+        Spectrum diffuse_radiance = 0.0f;
         Spectrum variance = 0.0f;
         Spectrum lowspp_radiance = 0.0f;
         Spectrum lowspp_variance = 0.0f;
@@ -143,35 +145,43 @@ void RendernetRendererTask::Run() {
             PBRT_STARTED_CAMERA_RAY_INTEGRATION(&rays[i], &samples[i]);
             if (rayWeight > 0.f) {
               if(i < renderer->recordedSamples) {
-                Ls[i] = rayWeight * renderer->RecordedLi(scene, rays[i], &samples[i], rng,
-                                                 arena, &isects[i], &Ts[i], sr);
+                RadianceQueryRecord ret = renderer->RecordedLi(scene, rays[i], &samples[i], rng,
+                    arena, &isects[i], &Ts[i], sr);
+                Ls[i] = rayWeight * ret.L;
+                diffuse_Ls[i] = rayWeight * ret.diffuse_L;
               }
               else {
-                Ls[i] = rayWeight * renderer->Li(scene, rays[i], &samples[i], rng,
-                                                 arena, &isects[i], &Ts[i]);
+                RadianceQueryRecord ret = renderer->RecordedLi(scene, rays[i], &samples[i], rng,
+                                               arena, &isects[i], &Ts[i], NULL);
+                Ls[i] = rayWeight * ret.L;
+                diffuse_Ls[i] = rayWeight * ret.diffuse_L;
               }
             }
             else {
                 Error("Ray has zero weight: not handled by sample saver!");
                 Ls[i] = 0.f;
+                diffuse_Ls[i] = 0.f;
                 Ts[i] = 1.f;
             }
 
             // Issue warning if unexpected radiance value returned
-            if (Ls[i].HasNaNs()) {
+            if (Ls[i].HasNaNs() || diffuse_Ls[i].HasNaNs()) {
                 Error("Not-a-number radiance value returned "
                       "for image sample.  Setting to black.");
                 Ls[i] = Spectrum(0.f);
+                diffuse_Ls[i] = Spectrum(0.f);
             }
-            else if (Ls[i].y() < -1e-5) {
+            else if (Ls[i].y() < -1e-5 || diffuse_Ls[i].y() < -1e-5 ) {
                 Error("Negative luminance value, %f, returned "
                       "for image sample.  Setting to black.", Ls[i].y());
                 Ls[i] = Spectrum(0.f);
+                diffuse_Ls[i] = Spectrum(0.f);
             }
-            else if (isinf(Ls[i].y())) {
+            else if (isinf(Ls[i].y()), isinf(diffuse_Ls[i].y())) {
                 Error("Infinite luminance value returned "
                       "for image sample.  Setting to black.");
                 Ls[i] = Spectrum(0.f);
+                diffuse_Ls[i] = Spectrum(0.f);
             }
             PBRT_FINISHED_CAMERA_RAY_INTEGRATION(&rays[i], &samples[i], &Ls[i]);
 
@@ -200,21 +210,28 @@ void RendernetRendererTask::Run() {
               lowspp_radiance += (Ls[i]-lowspp_radiance)/(n_added_lowspp+1);
               n_added_lowspp += 1;
             } else {  // skipping "recordedSamples" from the groundtruth ensure i/o are decorrelated
+              // Update radiance mean and std
               Spectrum current = radiance;
               Spectrum delta = (Ls[i] - current);
               current += delta/(n_added+1);
               variance += delta*(Ls[i] - current);
               radiance += (Ls[i]-radiance)/(n_added+1);
-              // Update radiance mean and std
+
+              Spectrum current_d = diffuse_radiance;
+              Spectrum delta_d = (diffuse_Ls[i] - current_d);
+              current_d += delta_d/(n_added+1);
+              diffuse_radiance += (diffuse_Ls[i]-diffuse_radiance)/(n_added+1);
+
               n_added += 1;
             }
-            
         }
 
         // Add rendered pixel to record
         sr->ground_truth.push_back(radiance.ToRGBSpectrum());
-        sr->ground_truth_variance.push_back(variance.ToRGBSpectrum());
+        sr->ground_truth_diffuse.push_back(diffuse_radiance.ToRGBSpectrum());
         sr->lowspp.push_back(lowspp_radiance.ToRGBSpectrum());
+
+        sr->ground_truth_variance.push_back(variance.ToRGBSpectrum());
         sr->lowspp_variance.push_back(lowspp_variance.ToRGBSpectrum());
 
         // Report sample results to _Sampler_, add contributions to image
@@ -344,11 +361,11 @@ void RendernetRenderer::Render(const Scene *scene) {
 Spectrum RendernetRenderer::Li(const Scene *scene,
         const RayDifferential &ray, const Sample *sample, RNG &rng,
         MemoryArena &arena, Intersection *isect, Spectrum *T) const {
-  return RecordedLi(scene, ray, sample, rng, arena, isect, T, NULL);
+  return RecordedLi(scene, ray, sample, rng, arena, isect, T, NULL).L;
 }
 
 
-Spectrum RendernetRenderer::RecordedLi(const Scene *scene,
+RadianceQueryRecord RendernetRenderer::RecordedLi(const Scene *scene,
         const RayDifferential &ray, const Sample *sample, RNG &rng,
         MemoryArena &arena, Intersection *isect, Spectrum *T, SampleRecord * sr) const {
     Assert(ray.time == sample->time);
@@ -359,9 +376,12 @@ Spectrum RendernetRenderer::RecordedLi(const Scene *scene,
     Intersection localIsect;
     if (!isect) isect = &localIsect;
     Spectrum Li = 0.f;
+    Spectrum Li_diffuse = 0.f;
     if (scene->Intersect(ray, isect)) {
-        Li = surfaceIntegrator->RecordedLi(scene, this, ray, *isect, sample,
-                                   rng, arena, sr, camera);
+        RadianceQueryRecord ret = surfaceIntegrator->RecordedLi(
+            scene, this, ray, *isect, sample, rng, arena, sr, camera);
+        Li = ret.L;
+        Li_diffuse = ret.diffuse_L;
     }
     else {
         // Handle ray that doesn't intersect any geometry
@@ -397,9 +417,8 @@ Spectrum RendernetRenderer::RecordedLi(const Scene *scene,
     // NOTE(mgharbi): volume not accounted for, for now
     Spectrum Lvi = volumeIntegrator->Li(scene, this, ray, sample, rng,
                                         T, arena);
-    // return *T * Li + Lvi;
     
-    return *T * Li;
+    return RadianceQueryRecord(*T * Li, *T * Li_diffuse);
 }
 
 

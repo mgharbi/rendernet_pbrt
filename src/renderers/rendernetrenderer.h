@@ -9,6 +9,8 @@
 #include "pbrt.h"
 #include "renderer.h"
 #include "parallel.h"
+#include "samplerecord.h"
+
 
 // RendernetRenderer Declarations
 class RendernetRenderer : public Renderer {
@@ -21,7 +23,7 @@ public:
     Spectrum Li(const Scene *scene, const RayDifferential &ray,
         const Sample *sample, RNG &rng, MemoryArena &arena,
         Intersection *isect = NULL, Spectrum *T = NULL) const;
-    Spectrum RecordedLi(const Scene *scene, const RayDifferential &ray,
+    RadianceQueryRecord RecordedLi(const Scene *scene, const RayDifferential &ray,
         const Sample *sample, RNG &rng, MemoryArena &arena,
         Intersection *isect = NULL, Spectrum *T = NULL, SampleRecord *sr = NULL) const;
     Spectrum Transmittance(const Scene *scene, const RayDifferential &ray,

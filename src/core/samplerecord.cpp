@@ -4,7 +4,7 @@
 #include <iostream>
 #include <lz4frame.h>
 
-int SampleRecord::version = 20180330;
+int SampleRecord::version = 20180421;
 int SampleRecord::sample_features = 
   5   // dx, dy, u, v, t
   + 3*2 // rgb*(diffuse + specular)
@@ -15,7 +15,7 @@ int SampleRecord::sample_features =
   + 1   // visibility
   + 3   // albedo_at_first
   + 3;  // albedo
-int SampleRecord::pixel_features = 3*4; // rgb * (gt + std + lowspp + lowspp_std)
+int SampleRecord::pixel_features = 3*5; // rgb * (gt + gt_diffuse + std + lowspp + lowspp_std)
 
 void LightQueryRecord::set_angles(Vector wi) {
     // spherical coordinates of light direction
@@ -74,6 +74,7 @@ SampleRecord::SampleRecord(
 
   // suffix
   ground_truth.reserve(tileSize*tileSize);
+  ground_truth_diffuse.reserve(tileSize*tileSize);
   ground_truth_variance.reserve(tileSize*tileSize);
   lowspp.reserve(tileSize*tileSize);
   lowspp_variance.reserve(tileSize*tileSize);
@@ -120,6 +121,8 @@ void SampleRecord::check_sizes() {
 
   if (ground_truth.size() != tileSize*tileSize)
     Error("incorrect ground_truth");
+  if (ground_truth_diffuse.size() != tileSize*tileSize)
+    Error("incorrect ground_truth_diffuse");
   if (ground_truth_variance.size() != tileSize*tileSize)
     Error("incorrect ground_truth_variance");
   if (lowspp.size() != tileSize*tileSize)
@@ -336,6 +339,7 @@ void SampleRecord::save(const char* fname) {
   // Write pixel data
   write_rgb_buffer(ground_truth, sstream);
   write_rgb_buffer(ground_truth_variance, sstream);
+  write_rgb_buffer(ground_truth_diffuse, sstream);
   write_rgb_buffer(lowspp, sstream);
   write_rgb_buffer(lowspp_variance, sstream);
   int nb = write_compressed(sstream, f);
