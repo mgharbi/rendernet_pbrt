@@ -137,7 +137,7 @@ Spectrum PathKPCNIntegrator::RecordedLi(const Scene *scene, const Renderer *rend
 
         // If the brdf has a diffuse component, we found our first
         // diffuse interaction. The path is no longer purely specular.
-        if (!foundRough && bsdf_has_diffuse > 0) {
+        if (!foundRough && bsdf_has_diffuse) {
           // TODO BSDF_TRANSMISSION too?
           Spectrum bsdfWeightDiffuse = specularBounce ? Spectrum(0.0f) : 
             bsdf->f(wo, wi, BxDFType(BSDF_DIFFUSE|BSDF_REFLECTION)) * AbsDot(wi, n) / pdf;
