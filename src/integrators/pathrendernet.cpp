@@ -68,7 +68,7 @@ RadianceQueryRecord PathRendernetIntegrator::RecordedLi(const Scene *scene, cons
         const Normal &n = bsdf->dgShading.nn;
         bool bsdf_has_diffuse = false;
         bsdf_has_diffuse =
-            (bsdf->NumComponents(BxDFType(BSDF_DIFFUSE|BSDF_REFLECTION)) > 0) |
+            (bsdf->NumComponents(BxDFType(BSDF_DIFFUSE|BSDF_REFLECTION)) > 0) ||
             (bsdf->NumComponents(BxDFType(BSDF_GLOSSY|BSDF_REFLECTION)) > 0);
             // (bsdf->NumComponents(BxDFType(BSDF_GLOSSY|BSDF_TRANSMISSION)) > 0);
 
@@ -153,7 +153,7 @@ RadianceQueryRecord PathRendernetIntegrator::RecordedLi(const Scene *scene, cons
         bool isFirstRough = false;
         if (!foundRough && bsdf_has_diffuse) {
           foundRough = true;
-          bool isFirstRough = true;
+          isFirstRough = true;
         } 
 
         // record value at first rough 
