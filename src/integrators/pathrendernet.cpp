@@ -33,6 +33,7 @@ RadianceQueryRecord PathRendernetIntegrator::RecordedLi(const Scene *scene, cons
     RayDifferential ray(r);
     bool specularBounce = false;
     bool foundRough = false;
+    bool foundNonSpecular = false;
     Intersection localIsect;
     const Intersection *isectp = &isect;
 
@@ -68,9 +69,11 @@ RadianceQueryRecord PathRendernetIntegrator::RecordedLi(const Scene *scene, cons
         const Normal &n = bsdf->dgShading.nn;
         bool bsdf_has_diffuse = false;
         bsdf_has_diffuse =
-            (bsdf->NumComponents(BxDFType(BSDF_DIFFUSE|BSDF_REFLECTION)) > 0) ||
-            (bsdf->NumComponents(BxDFType(BSDF_GLOSSY|BSDF_REFLECTION)) > 0);
-            // (bsdf->NumComponents(BxDFType(BSDF_GLOSSY|BSDF_TRANSMISSION)) > 0);
+            (bsdf->NumComponents(BxDFType(BSDF_DIFFUSE|BSDF_REFLECTION)) > 0);
+        bool bsdf_has_nonspecular = false;
+        bsdf_has_nonspecular = bsdf_has_diffuse ||
+            (bsdf->NumComponents(BxDFType(BSDF_GLOSSY|BSDF_REFLECTION)) > 0) ||
+            (bsdf->NumComponents(BxDFType(BSDF_GLOSSY|BSDF_TRANSMISSION)) > 0);
 
         Vector depth_vector = p-ray.o;
         hitDistance += depth_vector.Length();
@@ -129,8 +132,23 @@ RadianceQueryRecord PathRendernetIntegrator::RecordedLi(const Scene *scene, cons
         bounce_type[bounces] = flags;
         Spectrum currAlbedo = bsdf->K();
 
-        // Save depth, normal, albedo at first bounce
-        if (bounces == 0) {
+        // If the brdf has a diffuse component, we found our first
+        // diffuse interaction. The path is no longer purely specular.
+        bool isFirstRough = false;
+        if (!foundRough && bsdf_has_diffuse) {
+          foundRough = true;
+          isFirstRough = true;
+        } 
+
+        bool isFirstNonSpecular = false;
+        if (!foundNonSpecular && bsdf_has_nonspecular) {
+          foundNonSpecular = true;
+          isFirstNonSpecular = true;
+        } 
+
+        // Save depth, normal, albedo at first non-specular
+        if (isFirstNonSpecular) {
+        // if (bounces == 0) {
           Normal ssn(n);
           if (Dot(ssn, ray.d) < 0) { //face forward
             ssn.x *= -1.0f;
@@ -147,14 +165,6 @@ RadianceQueryRecord PathRendernetIntegrator::RecordedLi(const Scene *scene, cons
           depth_at_first = hitDistance;
           albedo_at_first = currAlbedo;
         }
-
-        // If the brdf has a diffuse component, we found our first
-        // diffuse interaction. The path is no longer purely specular.
-        bool isFirstRough = false;
-        if (!foundRough && bsdf_has_diffuse) {
-          foundRough = true;
-          isFirstRough = true;
-        } 
 
         // record value at first rough 
         if (sr && !recordedOutputValues && foundRough) {
