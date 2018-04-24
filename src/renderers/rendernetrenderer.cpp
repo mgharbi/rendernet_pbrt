@@ -45,6 +45,7 @@
 #include "intersection.h"
 #include "montecarlo.h"
 #include "cameras/perspective.h"
+#include "time.h"
 
 #include <typeinfo>
 
@@ -84,7 +85,8 @@ void RendernetRendererTask::Run() {
 
     // Declare local variables used for rendering loop
     MemoryArena arena;
-    RNG rng(taskNum);
+    RNG rng(time(NULL));
+    // RNG rng(taskNum);
 
     // Allocate space for samples and intersections
     int maxSamples = sampler->MaximumSampleCount() + renderer->recordedSamples;

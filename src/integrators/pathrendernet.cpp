@@ -67,6 +67,7 @@ RadianceQueryRecord PathRendernetIntegrator::RecordedLi(const Scene *scene, cons
         BSDF *bsdf = isectp->GetBSDF(ray, arena);
         const Point &p = bsdf->dgShading.p;
         const Normal &n = bsdf->dgShading.nn;
+
         bool bsdf_has_diffuse = false;
         bsdf_has_diffuse =
             (bsdf->NumComponents(BxDFType(BSDF_DIFFUSE|BSDF_REFLECTION)) > 0);
@@ -100,10 +101,8 @@ RadianceQueryRecord PathRendernetIntegrator::RecordedLi(const Scene *scene, cons
         L += contrib*pathThroughput;
         if (!foundRough && bsdf_has_diffuse) {
           Ldiffuse += qr.diffuse_lighting*pathThroughputDiffuse;
-          // Ldiffuse += contrib*pathThroughputDiffuse;
           if (bounces > 0)  {
             Ldiffuse_indirect += qr.diffuse_lighting*pathThroughputDiffuse;
-            // Ldiffuse_indirect += contrib*pathThroughputDiffuse;
           }
         } else if (foundRough) {
           Ldiffuse += contrib*pathThroughputDiffuse;
@@ -148,7 +147,6 @@ RadianceQueryRecord PathRendernetIntegrator::RecordedLi(const Scene *scene, cons
 
         // Save depth, normal, albedo at first non-specular
         if (isFirstNonSpecular) {
-        // if (bounces == 0) {
           Normal ssn(n);
           if (Dot(ssn, ray.d) < 0) { //face forward
             ssn.x *= -1.0f;
