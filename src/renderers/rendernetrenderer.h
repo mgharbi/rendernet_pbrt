@@ -54,13 +54,16 @@ public:
     RendernetRendererTask(const Scene *sc, RendernetRenderer *ren, Camera *c,
                         ProgressReporter &pr, 
                         Sampler *ms, Sampler *ms2, Sampler* rs,
-                        Sample *sam, 
+                        Sample *sam, Sample *sam2, Sample *rsam,
                         int tn, int tc)
       : reporter(pr)
     {
         scene = sc; renderer = ren; camera = c; 
         mainSampler = ms; mainSampler2 = ms2; recordedSampler = rs;
-        origSample = sam; taskNum = tn; taskCount = tc;
+        origSample = sam; 
+        origSample2 = sam2; 
+        recordedOrigSample = rsam; 
+        taskNum = tn; taskCount = tc;
     }
     void Run();
 
@@ -75,6 +78,8 @@ private:
     Sampler *recordedSampler;
     ProgressReporter &reporter;
     Sample *origSample;
+    Sample *origSample2;
+    Sample *recordedOrigSample;
     int taskNum, taskCount;
 
 };

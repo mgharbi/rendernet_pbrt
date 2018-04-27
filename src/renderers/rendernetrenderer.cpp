@@ -82,6 +82,12 @@ void RendernetRendererTask::Run() {
       recordedSampler->GetSubSampler(taskNum, taskCount)
     };
 
+    Sample* origSamples[3] = {
+      origSample,
+      origSample2,
+      recordedOrigSample,
+    };
+
     for (int i = 0; i < 3; ++i) {
       if (!samplers[i]) {
           reporter.Update();
@@ -127,7 +133,7 @@ void RendernetRendererTask::Run() {
 
       int maxSamples = sampler->MaximumSampleCount();
       // TODO: isolate origsamples per sampler
-      Sample *samples = origSample->Duplicate(maxSamples);
+      Sample *samples = origSamples[sampler_idx]->Duplicate(maxSamples);
       RayDifferential *rays = new RayDifferential[maxSamples];
       Spectrum *Ts = new Spectrum[maxSamples];
       Intersection *isects = new Intersection[maxSamples];
@@ -274,6 +280,10 @@ void RendernetRenderer::Render(const Scene *scene) {
     // Allocate and initialize _sample_
     Sample *sample = new Sample(sampler, surfaceIntegrator,
                                 volumeIntegrator, scene);
+    Sample *sample2 = new Sample(sampler2, surfaceIntegrator,
+                                volumeIntegrator, scene);
+    Sample *rsample = new Sample(sampler_recorded, surfaceIntegrator,
+                                volumeIntegrator, scene);
 
     // Create and launch _RendernetRendererTask_s for rendering image
 
@@ -302,7 +312,7 @@ void RendernetRenderer::Render(const Scene *scene) {
       renderTasks.push_back(
           new RendernetRendererTask(
             scene, this, camera, reporter, sampler, sampler2,
-            sampler_recorded, sample, nTasks-1-i, nTasks));
+            sampler_recorded, sample, sample2, rsample, nTasks-1-i, nTasks));
     }
     EnqueueTasks(renderTasks);
     WaitForAllTasks();
@@ -315,6 +325,8 @@ void RendernetRenderer::Render(const Scene *scene) {
     PBRT_FINISHED_RENDERING();
     // Clean up after rendering and store final image
     delete sample;
+    delete sample2;
+    delete rsample;
     camera->film->WriteImage();
 }
 
