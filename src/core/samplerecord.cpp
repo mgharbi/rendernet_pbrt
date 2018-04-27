@@ -2,9 +2,11 @@
 #include "pbrt.h"
 #include <fstream>
 #include <iostream>
+#include <iterator>
 #include <lz4frame.h>
 
-int SampleRecord::version = 20180421;
+int SampleRecord::version = 20180427;
+int SampleRecord::buffer_channels = 14;
 int SampleRecord::sample_features = 
   5   // dx, dy, u, v, t
   + 3*2 // rgb*(diffuse + specular)
@@ -15,7 +17,73 @@ int SampleRecord::sample_features =
   + 1   // visibility
   + 3   // albedo_at_first
   + 3;  // albedo
-int SampleRecord::pixel_features = 3*5; // rgb * (gt + gt_diffuse + std + lowspp + lowspp_std)
+int SampleRecord::pixel_features = SampleRecord::buffer_channels*2*2; // 2 references with variance
+
+RadianceQueryRecord::RadianceQueryRecord() {
+  count = 0;
+  buffer = std::vector<float>(14, 0.0f);
+  var_buffer = std::vector<float>(14, 0.0f);
+}
+
+RadianceQueryRecord::RadianceQueryRecord(
+      Spectrum radiance, Spectrum diffuse, Spectrum albedo, Normal nrm, 
+      float depth, bool visibility) {
+  count = 1;
+  buffer = std::vector<float>(14, 0.0f);
+  var_buffer = std::vector<float>(14, 0.0f);
+
+  float rgb[3];
+  radiance.ToRGB(rgb);
+  float rgb_d[3];
+  diffuse.ToRGB(rgb_d);
+  float rgb_a[3];
+  albedo.ToRGB(rgb_a);
+
+  std::copy(rgb, rgb+3, buffer.begin());
+  std::copy(rgb_d, rgb_d+3, buffer.begin() + 3);
+  std::copy(rgb_a, rgb_a+3, buffer.begin() + 6);
+  buffer[9]  = nrm.x;
+  buffer[10] = nrm.y;
+  buffer[11] = nrm.z;
+  buffer[12] = depth;
+  buffer[13] = visibility ? 1.0f : 0.0f;
+}
+
+void RadianceQueryRecord::add(const RadianceQueryRecord &other, float rayWeight) {
+  if (rayWeight != 1.0f) {
+    Error("RayWeight should be 1.0. Not handled by sample saver");
+    throw;
+  }
+
+  count += 1;
+  for (int i = 0; i < (int)buffer.size(); ++i) {
+    float mean = buffer[i];
+    float delta = other.buffer[i] - mean;
+    mean += delta / count;
+    buffer[i] = mean;
+    float delta2 = other.buffer[i] - mean;
+    var_buffer[i] += delta*delta2;
+  }
+
+  // TODO: final var should divide by (n-1)
+}
+
+bool RadianceQueryRecord::isValid() {
+  // if (L.HasNaNs() || diffuse_L.HasNaNs()) {
+  //   Error("Not-a-number radiance value returned "
+  //       "for image sample.  Setting to black.");
+  //   return false;
+  // } else if (L.y() < -1e-5 || diffuse_L.y() < -1e-5 ) {
+  //   Error("Negative luminance value, %f, returned "
+  //       "for image sample.  Setting to black.", L.y());
+  //   return false;
+  // } else if (isinf(L.y()), isinf(diffuse_L.y())) {
+  //   Error("Infinite luminance value returned "
+  //       "for image sample.  Setting to black.");
+  //   return false;
+  // }
+  return true;
+}
 
 void LightQueryRecord::set_angles(Vector wi) {
     // spherical coordinates of light direction
@@ -73,62 +141,56 @@ SampleRecord::SampleRecord(
   bounce_type.reserve(tileSize*tileSize*sample_count);
 
   // suffix
-  ground_truth.reserve(tileSize*tileSize);
-  ground_truth_diffuse.reserve(tileSize*tileSize);
-  ground_truth_variance.reserve(tileSize*tileSize);
-  lowspp.reserve(tileSize*tileSize);
-  lowspp_variance.reserve(tileSize*tileSize);
+  image_data.reserve(buffer_channels*2*2); // 2 reference images (+ variance)
+  for (int i = 0; i < 2*2*buffer_channels; ++i) {
+    image_data.push_back(std::vector<float>());
+    image_data[i].reserve(tileSize*tileSize);
+  }
 }
 
 void SampleRecord::check_sizes() {
-  if (pixel_x.size() != tileSize*tileSize*sample_count)
+  if ((int)pixel_x.size() != tileSize*tileSize*sample_count)
     Error("incorrect pixel_x");
-  if (pixel_y.size() != tileSize*tileSize*sample_count)
+  if ((int)pixel_y.size() != tileSize*tileSize*sample_count)
     Error("incorrect pixel_y");
-  if (subpixel_x.size() != tileSize*tileSize*sample_count)
+  if ((int)subpixel_x.size() != tileSize*tileSize*sample_count)
     Error("incorrect subpixel_x");
-  if (subpixel_y.size() != tileSize*tileSize*sample_count)
+  if ((int)subpixel_y.size() != tileSize*tileSize*sample_count)
     Error("incorrect subpixel_y");
-  if (lens_u.size() != tileSize*tileSize*sample_count)
+  if ((int)lens_u.size() != tileSize*tileSize*sample_count)
     Error("incorrect lens_u");
-  if (lens_v.size() != tileSize*tileSize*sample_count)
+  if ((int)lens_v.size() != tileSize*tileSize*sample_count)
     Error("incorrect lens_v");
-  if (time.size() != tileSize*tileSize*sample_count)
+  if ((int)time.size() != tileSize*tileSize*sample_count)
     Error("incorrect time");
 
-  if (radiance_diffuse.size() != tileSize*tileSize*sample_count)
+  if ((int)radiance_diffuse.size() != tileSize*tileSize*sample_count)
     Error("incorrect radiance_diffuse");
-  if (radiance_diffuse_indirect.size() != tileSize*tileSize*sample_count)
+  if ((int)radiance_diffuse_indirect.size() != tileSize*tileSize*sample_count)
     Error("incorrect radiance_diffuse_indirect");
-  if (radiance_specular.size() != tileSize*tileSize*sample_count)
+  if ((int)radiance_specular.size() != tileSize*tileSize*sample_count)
     Error("incorrect radiance_specular");
-  if (normal_at_first.size() != tileSize*tileSize*sample_count)
-    Error("incorrect normal_at_first (got %d expected %d)", normal_at_first.size(), tileSize*tileSize*sample_count);
-  if (depth_at_first.size() != tileSize*tileSize*sample_count)
-    Error("incorrect depth  at first (got %d expected %d)", depth_at_first.size(), tileSize*tileSize*sample_count);
-  if (normal.size() != tileSize*tileSize*sample_count)
+  if ((int)normal_at_first.size() != tileSize*tileSize*sample_count)
+    Error("incorrect normal_at_first (got %lu expected %d)", normal_at_first.size(), tileSize*tileSize*sample_count);
+  if ((int)depth_at_first.size() != tileSize*tileSize*sample_count)
+    Error("incorrect depth  at first (got %lu expected %d)", depth_at_first.size(), tileSize*tileSize*sample_count);
+  if ((int)normal.size() != tileSize*tileSize*sample_count)
     Error("incorrect normal");
-  if (depth.size() != tileSize*tileSize*sample_count)
+  if ((int)depth.size() != tileSize*tileSize*sample_count)
     Error("incorrect depth");
-  if (visibility.size() != tileSize*tileSize*sample_count)
+  if ((int)visibility.size() != tileSize*tileSize*sample_count)
     Error("incorrect visibility");
-  if (albedo.size() != tileSize*tileSize*sample_count)
+  if ((int)albedo.size() != tileSize*tileSize*sample_count)
     Error("incorrect albedo");
-  if (albedo_at_first.size() != tileSize*tileSize*sample_count)
-    Error("incorrect albedo at first (got %d expected %d)", albedo_at_first.size(), tileSize*tileSize*sample_count);
-  if (probabilities.size() != tileSize*tileSize*sample_count)
-    Error("incorrect probabilities at first (got %d expected %d)", probabilities.size(), tileSize*tileSize*sample_count);
+  if ((int)albedo_at_first.size() != tileSize*tileSize*sample_count)
+    Error("incorrect albedo at first (got %lu expected %d)", albedo_at_first.size(), tileSize*tileSize*sample_count);
+  if ((int)probabilities.size() != tileSize*tileSize*sample_count)
+    Error("incorrect probabilities at first (got %lu expected %d)", probabilities.size(), tileSize*tileSize*sample_count);
 
-  if (ground_truth.size() != tileSize*tileSize)
-    Error("incorrect ground_truth");
-  if (ground_truth_diffuse.size() != tileSize*tileSize)
-    Error("incorrect ground_truth_diffuse");
-  if (ground_truth_variance.size() != tileSize*tileSize)
-    Error("incorrect ground_truth_variance");
-  if (lowspp.size() != tileSize*tileSize)
-    Error("incorrect lowspp");
-  if (lowspp_variance.size() != tileSize*tileSize)
-    Error("incorrect lowspp_variance");
+  for (int i = 0; i < buffer_channels ; ++i) {
+    if (image_data[i].size() != tileSize*tileSize)
+      Error("incorrect image data");
+  }
 }
 
 void SampleRecord::write_rgb_buffer(
@@ -292,6 +354,17 @@ int SampleRecord::write_compressed(std::stringstream &fi, std::ostream &f) {
   return nbytes;
 }
 
+void SampleRecord::add_image_sample(const RadianceQueryRecord &r, int sampler_idx) {
+  for (int i = 0; i < buffer_channels; ++i) {
+    image_data[sampler_idx*buffer_channels*2 + i].push_back(r.buffer[i]);
+    float var = 0.f;
+    if (r.count > 1) {
+      var = r.var_buffer[i] / (r.count-1);
+    }
+    image_data[sampler_idx*buffer_channels*2 + i + buffer_channels].push_back(var);
+  }
+}
+
 void SampleRecord::save(const char* fname) {
   std::ofstream f(fname, std::ios::binary);
 
@@ -334,19 +407,19 @@ void SampleRecord::save(const char* fname) {
     f.write((char*)&tile_y, sizeof(int));
   }
 
-  std::stringstream sstream;
-
-  // Write pixel data
-  write_rgb_buffer(ground_truth, sstream);
-  write_rgb_buffer(ground_truth_variance, sstream);
-  write_rgb_buffer(ground_truth_diffuse, sstream);
-  write_rgb_buffer(lowspp, sstream);
-  write_rgb_buffer(lowspp_variance, sstream);
-  int nb = write_compressed(sstream, f);
+  {
+    // Write pixel data
+    std::stringstream sstream;
+    std::ostream_iterator<float> it(sstream);
+    for (int i = 0; i < (int)image_data.size(); ++i) {
+      sstream.write((char*)image_data[i].data(), tileSize*tileSize*sizeof(float));
+    }
+    int nb = write_compressed(sstream, f);
+  }
 
   // Write sample data
   for(int sample_id = 0; sample_id < sample_count; ++sample_id) {
-    sstream.seekp(0);
+    std::stringstream sstream;
     // write_sample_buffer(sample_id, pixel_x, sstream);
     // write_sample_buffer(sample_id, pixel_y, sstream);
     write_sample_buffer(sample_id, subpixel_x, sstream);
@@ -368,7 +441,7 @@ void SampleRecord::save(const char* fname) {
     write_float_path_data(sample_id, 2, light_directions, sstream);
     write_bt_sample_buffer(sample_id, bounce_type, sstream);
 
-    nb = write_compressed(sstream, f);
+    write_compressed(sstream, f);
   }
   
   f.close();

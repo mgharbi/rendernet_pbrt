@@ -21,7 +21,9 @@ void PathRendernetIntegrator::RequestSamples(Sampler *sampler, Sample *sample,
 Spectrum PathRendernetIntegrator::Li(const Scene *scene, const Renderer *renderer,
         const RayDifferential &r, const Intersection &isect,
         const Sample *sample, RNG &rng, MemoryArena &arena) const {
-  return RecordedLi(scene, renderer, r, isect, sample, rng, arena, NULL, NULL).L;
+  // return RecordedLi(scene, renderer, r, isect, sample, rng, arena, NULL, NULL).L;
+  throw;
+  return Spectrum(0.0f); // TODO: fixme
 }
 
 RadianceQueryRecord PathRendernetIntegrator::RecordedLi(const Scene *scene, const Renderer *renderer,
@@ -47,6 +49,7 @@ RadianceQueryRecord PathRendernetIntegrator::RecordedLi(const Scene *scene, cons
     float depth_at_first = -1.0f;
     Spectrum albedo = 0.f;
     Spectrum albedo_at_first = 0.f;
+
     std::vector<float> probabilities(4*(maxDepth_+1), 0.0f);
     std::vector<float> light_directions(2*(maxDepth_+1), 0.0f);
     std::vector<uint16_t> bounce_type((maxDepth_+1), 0);
@@ -114,6 +117,8 @@ RadianceQueryRecord PathRendernetIntegrator::RecordedLi(const Scene *scene, cons
         light_directions[2*bounces + 0] = qr.theta;
         light_directions[2*bounces + 1] = qr.phi;
 
+        isLightVisible = isLightVisible || qr.isLightVisible;
+
         // Sample BSDF to get new path direction
 
         // Get _outgoingBSDFSample_ for sampling new path direction
@@ -153,15 +158,15 @@ RadianceQueryRecord PathRendernetIntegrator::RecordedLi(const Scene *scene, cons
             ssn.y *= -1.0f;
             ssn.z *= -1.0f;
           }
-          if(sr && sr->useCameraSpaceNormals) {
-            Transform tx;
-            camera->CameraToWorld.Interpolate(sample->time, &tx);
-            nrm_at_first = Inverse(tx)(ssn);
-          } else {
-            nrm_at_first = ssn;
-          }
+
+          // Camera-space normals
+          Transform tx;
+          camera->CameraToWorld.Interpolate(sample->time, &tx);
+          nrm_at_first = Inverse(tx)(ssn);
+
           depth_at_first = hitDistance;
           albedo_at_first = currAlbedo;
+          // isLightVisible = qr.isLightVisible;
         }
 
         // record value at first rough 
@@ -169,7 +174,6 @@ RadianceQueryRecord PathRendernetIntegrator::RecordedLi(const Scene *scene, cons
           recordedOutputValues = true;
           depth = hitDistance;
           albedo = currAlbedo;
-          isLightVisible = qr.isLightVisible;
           Normal ssn(n);
           if (Dot(ssn, ray.d) < 0) { //face forward
             ssn.x *= -1.0f;
@@ -177,13 +181,10 @@ RadianceQueryRecord PathRendernetIntegrator::RecordedLi(const Scene *scene, cons
             ssn.z *= -1.0f;
           }
 
-          if(sr && sr->useCameraSpaceNormals) {
-            Transform tx;
-            camera->CameraToWorld.Interpolate(sample->time, &tx);
-            nrm = Inverse(tx)(ssn);
-          } else {
-            nrm = ssn;
-          }
+          // Camera-space normals
+          Transform tx;
+          camera->CameraToWorld.Interpolate(sample->time, &tx);
+          nrm = Inverse(tx)(ssn);
         } 
 
         if (f.IsBlack() || pdf == 0.) { // Stop propagation
@@ -285,7 +286,8 @@ RadianceQueryRecord PathRendernetIntegrator::RecordedLi(const Scene *scene, cons
       sr->bounce_type.push_back(bounce_type);
     }
 
-    return RadianceQueryRecord(L, Ldiffuse);
+    return RadianceQueryRecord(
+        L, Ldiffuse, albedo_at_first, nrm_at_first, depth_at_first, isLightVisible);
 }
 
 

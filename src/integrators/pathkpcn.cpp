@@ -20,7 +20,9 @@ void PathKPCNIntegrator::RequestSamples(Sampler *sampler, Sample *sample,
 Spectrum PathKPCNIntegrator::Li(const Scene *scene, const Renderer *renderer,
         const RayDifferential &r, const Intersection &isect,
         const Sample *sample, RNG &rng, MemoryArena &arena) const {
-  return RecordedLi(scene, renderer, r, isect, sample, rng, arena, NULL, NULL).L;
+  // return RecordedLi(scene, renderer, r, isect, sample, rng, arena, NULL, NULL);
+  throw;
+  return Spectrum(0.0f);
 }
 
 
@@ -249,7 +251,8 @@ RadianceQueryRecord PathKPCNIntegrator::RecordedLi(const Scene *scene, const Ren
       sr->bounce_type.push_back(bounce_type);
     }
 
-    return RadianceQueryRecord(L, Ldiffuse);
+    // return RadianceQueryRecord(L, Ldiffuse);
+    return RadianceQueryRecord();
 }
 
 

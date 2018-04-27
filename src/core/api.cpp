@@ -1252,11 +1252,21 @@ Renderer *RenderOptions::MakeRenderer() const {
     }
     else if (RendererName == "rendernet") {
         int tileSize = RendererParams.FindOneInt("tilesize", 64);
+
         int useCameraSpaceNormals = RendererParams.FindOneBool("useCameraSpaceNormals", true);
         int recordedSamples = RendererParams.FindOneInt("recordedsamples", 1);
         RendererParams.ReportUnused();
         Sampler *sampler = MakeSampler(SamplerName, SamplerParams, camera->film, camera);
+        Sampler *sampler2 = MakeSampler(SamplerName, SamplerParams, camera->film, camera);
+
+        ParamSet RecordedSamplerParams = SamplerParams;
+        RecordedSamplerParams.AddInt("pixelsamples", &recordedSamples, 1);
+        Sampler *sampler_recorded = MakeSampler(SamplerName, RecordedSamplerParams, camera->film, camera);
+
         if (!sampler) Severe("Unable to create sampler.");
+        if (!sampler2) Severe("Unable to create sampler.");
+        if (!sampler_recorded) Severe("Unable to create sampler.");
+
         // Create surface and volume integrators
         SurfaceIntegrator *surfaceIntegrator = MakeSurfaceIntegrator(SurfIntegratorName,
             SurfIntegratorParams);
@@ -1264,7 +1274,7 @@ Renderer *RenderOptions::MakeRenderer() const {
         VolumeIntegrator *volumeIntegrator = MakeVolumeIntegrator(VolIntegratorName,
             VolIntegratorParams);
         if (!volumeIntegrator) Severe("Unable to create volume integrator.");
-        renderer = new RendernetRenderer(sampler, camera, surfaceIntegrator,
+        renderer = new RendernetRenderer(sampler, sampler2, sampler_recorded, camera, surfaceIntegrator,
                                        volumeIntegrator, tileSize, recordedSamples,
                                        useCameraSpaceNormals);
         // Warn if no light sources are defined

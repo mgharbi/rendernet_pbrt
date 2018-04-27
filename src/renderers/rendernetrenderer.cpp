@@ -75,44 +75,45 @@ bool RendernetRenderer::is_kpcn() const {
 void RendernetRendererTask::Run() {
     PBRT_STARTED_RENDERTASK(taskNum);
     // Get sub-_Sampler_ for _RendernetRendererTask_
-    Sampler *sampler = mainSampler->GetSubSampler(taskNum, taskCount);
-    if (!sampler)
-    {
-        reporter.Update();
-        PBRT_FINISHED_RENDERTASK(taskNum);
-        return;
+    //
+    Sampler* samplers[3] = {
+      mainSampler->GetSubSampler(taskNum, taskCount), 
+      mainSampler2->GetSubSampler(taskNum, taskCount), 
+      recordedSampler->GetSubSampler(taskNum, taskCount)
+    };
+
+    for (int i = 0; i < 3; ++i) {
+      if (!samplers[i]) {
+          reporter.Update();
+          PBRT_FINISHED_RENDERTASK(taskNum);
+          return;
+      }
     }
 
     // Declare local variables used for rendering loop
     MemoryArena arena;
-    RNG rng(time(NULL));
-    // RNG rng(taskNum);
-
-    // Allocate space for samples and intersections
-    int maxSamples = sampler->MaximumSampleCount() + renderer->recordedSamples;
-    Sample *samples = origSample->Duplicate(maxSamples);
-    RayDifferential *rays = new RayDifferential[maxSamples];
-    Spectrum *Ls = new Spectrum[maxSamples];
-    Spectrum *diffuse_Ls = new Spectrum[maxSamples];
-    Spectrum *Ts = new Spectrum[maxSamples];
-    Intersection *isects = new Intersection[maxSamples];
+    RNG rng(time(NULL)); // RNG rng(taskNum);
 
     Point sceneCenter;
     float sceneRadius;
     scene->WorldBound().BoundingSphere(&sceneCenter, &sceneRadius);
 
-    // TODO: use dynamic cast for camera
+    PerspectiveCamera *pcam = dynamic_cast<PerspectiveCamera*>(camera);
+    if (!pcam) {
+      Error("Rendernet only supports ProjectiveCamera\n");
+      return;
+    }
+
     SampleRecord *sr = new SampleRecord(
-        sampler->xPixelStart,
-        sampler->yPixelStart,
+        samplers[0]->xPixelStart,
+        samplers[0]->yPixelStart,
         renderer->tileSize, 
-        renderer->recordedSamples,
-        sampler->samplesPerPixel,
+        samplers[2]->samplesPerPixel,
+        samplers[0]->samplesPerPixel,
         renderer->maxDepth,
         camera->film->xResolution, camera->film->yResolution,
-        sceneRadius, ((ProjectiveCamera*) camera)->focalDistance,
-        ((ProjectiveCamera*) camera)->lensRadius,
-        ((PerspectiveCamera*) camera)->fov,
+        sceneRadius, pcam->focalDistance,
+        pcam->lensRadius, pcam->fov,
         renderer->useCameraSpaceNormals
         );
 
@@ -120,154 +121,110 @@ void RendernetRendererTask::Run() {
       sr->set_kpcn();
     }
 
-    // Get samples from _Sampler_ and update image
-    int sampleCount;
-    int pixel_id = 0;
-    while ((sampleCount = sampler->GetMoreSamples(samples, rng)) > 0) {
-        int n_added = 0;
-        int n_added_lowspp = 0;
-        Spectrum radiance = 0.0f;
-        Spectrum diffuse_radiance = 0.0f;
-        Spectrum variance = 0.0f;
-        Spectrum lowspp_radiance = 0.0f;
-        Spectrum lowspp_variance = 0.0f;
+    // Allocate space for samples and intersections
+    for (int sampler_idx = 0; sampler_idx < 3; ++sampler_idx) {
+      Sampler *sampler = samplers[sampler_idx];
+
+      int maxSamples = sampler->MaximumSampleCount();
+      // TODO: isolate origsamples per sampler
+      Sample *samples = origSample->Duplicate(maxSamples);
+      RayDifferential *rays = new RayDifferential[maxSamples];
+      Spectrum *Ts = new Spectrum[maxSamples];
+      Intersection *isects = new Intersection[maxSamples];
+
+      // Get samples from _Sampler_ and update image
+      int sampleCount;
+      int pixel_id = 0;
+      while ((sampleCount = sampler->GetMoreSamples(samples, rng)) > 0) {
+        RadianceQueryRecord rq_rec;
 
         // Generate camera rays and compute radiance along rays
         for (int i = 0; i < sampleCount; ++i) {
-            // Find camera ray for _sample[i]_
-            PBRT_STARTED_GENERATING_CAMERA_RAY(&samples[i]);
-            float rayWeight = camera->GenerateRayDifferential(samples[i], &rays[i]);
-            rays[i].ScaleDifferentials(1.f / sqrtf(sampler->samplesPerPixel));
-            PBRT_FINISHED_GENERATING_CAMERA_RAY(&samples[i], &rays[i], rayWeight);
-            if(rayWeight != 1.0f) {
-              printf("weight %.2f\n", rayWeight);
-            }
+          // Find camera ray for _sample[i]_
+          // PBRT_STARTED_GENERATING_CAMERA_RAY(&samples[i]);
+          float rayWeight = camera->GenerateRayDifferential(samples[i], &rays[i]);
+          rays[i].ScaleDifferentials(1.f / sqrtf(sampler->samplesPerPixel));
+          // PBRT_FINISHED_GENERATING_CAMERA_RAY(&samples[i], &rays[i], rayWeight);
 
-            // Evaluate radiance along camera ray
-            PBRT_STARTED_CAMERA_RAY_INTEGRATION(&rays[i], &samples[i]);
-            if (rayWeight > 0.f) {
-              if(i < renderer->recordedSamples) {
-                RadianceQueryRecord ret = renderer->RecordedLi(scene, rays[i], &samples[i], rng,
-                    arena, &isects[i], &Ts[i], sr);
-                Ls[i] = rayWeight * ret.L;
-                diffuse_Ls[i] = rayWeight * ret.diffuse_L;
-              }
-              else {
-                RadianceQueryRecord ret = renderer->RecordedLi(scene, rays[i], &samples[i], rng,
-                                               arena, &isects[i], &Ts[i], NULL);
-                Ls[i] = rayWeight * ret.L;
-                diffuse_Ls[i] = rayWeight * ret.diffuse_L;
-              }
-            }
-            else {
-                Error("Ray has zero weight: not handled by sample saver!");
-                Ls[i] = 0.f;
-                diffuse_Ls[i] = 0.f;
-                Ts[i] = 1.f;
-            }
+          // Evaluate radiance along camera ray
+          // PBRT_STARTED_CAMERA_RAY_INTEGRATION(&rays[i], &samples[i]);
+          if (sampler_idx == 2) {
+            RadianceQueryRecord ret = renderer->RecordedLi(scene, rays[i], &samples[i], rng,
+                arena, &isects[i], &Ts[i], sr); 
+            // sr != NULL we save the sample, and ignore the buffer data
+          } else {
+            RadianceQueryRecord ret = renderer->RecordedLi(scene, rays[i], &samples[i], rng,
+                arena, &isects[i], &Ts[i], NULL);
+            rq_rec.add(ret, rayWeight);
+          }
+          // PBRT_FINISHED_CAMERA_RAY_INTEGRATION(&rays[i], &samples[i], &Ls[i]);
+          
+          // if (!rq_rec.isValid()) {
+          //   Error("Radiance query record is malformed!");
+          //   return;
+          // }
 
-            // Issue warning if unexpected radiance value returned
-            if (Ls[i].HasNaNs() || diffuse_Ls[i].HasNaNs()) {
-                Error("Not-a-number radiance value returned "
-                      "for image sample.  Setting to black.");
-                Ls[i] = Spectrum(0.f);
-                diffuse_Ls[i] = Spectrum(0.f);
-            }
-            else if (Ls[i].y() < -1e-5 || diffuse_Ls[i].y() < -1e-5 ) {
-                Error("Negative luminance value, %f, returned "
-                      "for image sample.  Setting to black.", Ls[i].y());
-                Ls[i] = Spectrum(0.f);
-                diffuse_Ls[i] = Spectrum(0.f);
-            }
-            else if (isinf(Ls[i].y()), isinf(diffuse_Ls[i].y())) {
-                Error("Infinite luminance value returned "
-                      "for image sample.  Setting to black.");
-                Ls[i] = Spectrum(0.f);
-                diffuse_Ls[i] = Spectrum(0.f);
-            }
-            PBRT_FINISHED_CAMERA_RAY_INTEGRATION(&rays[i], &samples[i], &Ls[i]);
+          // Record sample data
+          if( sampler_idx == 2 ) {
+            int pix_x = pixel_id % renderer->tileSize + sr->tile_x;
+            int pix_y = pixel_id / renderer->tileSize + sr->tile_y;
 
-            // First "recordedSamples" go to .bin, the rest to ground truth
-            if(i < renderer->recordedSamples) {
-              int pix_x = pixel_id % renderer->tileSize + sr->tile_x;
-              int pix_y = pixel_id / renderer->tileSize + sr->tile_y;
-              sr->pixel_x.push_back((float) pix_x);
-              sr->pixel_y.push_back((float) pix_y);
-              sr->subpixel_x.push_back(samples[i].imageX-(float)pix_x);
-              sr->subpixel_y.push_back(samples[i].imageY-(float)pix_y);
-              
-              float lensU, lensV;
-              ConcentricSampleDisk(samples[i].lensU, samples[i].lensV, &lensU, &lensV);
-              lensU *= sr->aperture_radius;
-              lensV *= sr->aperture_radius;
-              sr->lens_u.push_back(lensU);
-              sr->lens_v.push_back(lensV);
+            float lensU, lensV;
+            ConcentricSampleDisk(samples[i].lensU, samples[i].lensV, &lensU, &lensV);
+            lensU *= sr->aperture_radius;
+            lensV *= sr->aperture_radius;
 
-              sr->time.push_back(samples[i].time);
+            sr->pixel_x.push_back((float) pix_x);
+            sr->pixel_y.push_back((float) pix_y);
+            sr->subpixel_x.push_back(samples[i].imageX-(float)pix_x);
+            sr->subpixel_y.push_back(samples[i].imageY-(float)pix_y);
+            sr->lens_u.push_back(lensU);
+            sr->lens_v.push_back(lensV);
+            sr->time.push_back(samples[i].time);
+          }
+        } // spp loop
 
-              Spectrum current = lowspp_radiance;
-              Spectrum delta = (Ls[i] - current);
-              current += delta/(n_added_lowspp+1);
-              lowspp_variance += delta*(Ls[i] - current);
-              lowspp_radiance += (Ls[i]-lowspp_radiance)/(n_added_lowspp+1);
-              n_added_lowspp += 1;
-            } else {  // skipping "recordedSamples" from the groundtruth ensure i/o are decorrelated
-              // Update radiance mean and std
-              Spectrum current = radiance;
-              Spectrum delta = (Ls[i] - current);
-              current += delta/(n_added+1);
-              variance += delta*(Ls[i] - current);
-              radiance += (Ls[i]-radiance)/(n_added+1);
-
-              Spectrum current_d = diffuse_radiance;
-              Spectrum delta_d = (diffuse_Ls[i] - current_d);
-              current_d += delta_d/(n_added+1);
-              diffuse_radiance += (diffuse_Ls[i]-diffuse_radiance)/(n_added+1);
-
-              n_added += 1;
-            }
+        if( sampler_idx < 2 ) {
+          // Add pixel data to .bin record
+          sr->add_image_sample(rq_rec, sampler_idx);
         }
 
-        // Add rendered pixel to record
-        sr->ground_truth.push_back(radiance.ToRGBSpectrum());
-        sr->ground_truth_diffuse.push_back(diffuse_radiance.ToRGBSpectrum());
-        sr->lowspp.push_back(lowspp_radiance.ToRGBSpectrum());
-
-        sr->ground_truth_variance.push_back(variance.ToRGBSpectrum());
-        sr->lowspp_variance.push_back(lowspp_variance.ToRGBSpectrum());
-
-        // Report sample results to _Sampler_, add contributions to image
-        if (sampler->ReportResults(samples, rays, Ls, isects, sampleCount))
-        {
-            for (int i = 0; i < sampleCount; ++i)
-            {
-                PBRT_STARTED_ADDING_IMAGE_SAMPLE(&samples[i], &rays[i], &Ls[i], &Ts[i]);
-                camera->film->AddSample(samples[i], Ls[i]);
-                PBRT_FINISHED_ADDING_IMAGE_SAMPLE();
-            }
-        }
+        // // Report sample results to _Sampler_, add contributions to image
+        // if (sampler->ReportResults(samples, rays, Ls, isects, sampleCount))
+        // {
+        //     for (int i = 0; i < sampleCount; ++i)
+        //     {
+        //         PBRT_STARTED_ADDING_IMAGE_SAMPLE(&samples[i], &rays[i], &Ls[i], &Ts[i]);
+        //         camera->film->AddSample(samples[i], Ls[i]);
+        //         PBRT_FINISHED_ADDING_IMAGE_SAMPLE();
+        //     }
+        // }
 
         // Free _MemoryArena_ memory from computing image sample values
         arena.FreeAll();
 
         // Increment pixel counter
         pixel_id += 1;
-    }
+      }
+
+      delete[] samples;
+      delete[] rays;
+      delete[] Ts;
+      delete[] isects;
+    } // Loop over samplers
     
     // Write sample data
-    sprintf(fname, "%04d_%04d.bin", sampler->xPixelStart, sampler->yPixelStart);
+    sprintf(fname, "%04d_%04d.bin", samplers[0]->xPixelStart, samplers[0]->yPixelStart);
     sr->save(fname);
 
     // Clean up after _SamplerRendererTask_ is done with its image region
-    camera->film->UpdateDisplay(sampler->xPixelStart,
-        sampler->yPixelStart, sampler->xPixelEnd+1, sampler->yPixelEnd+1);
+    camera->film->UpdateDisplay(samplers[0]->xPixelStart,
+        samplers[0]->yPixelStart, samplers[0]->xPixelEnd+1, samplers[0]->yPixelEnd+1);
     delete sr;
-    delete sampler;
-    delete[] samples;
-    delete[] rays;
-    delete[] Ls;
-    delete[] Ts;
-    delete[] isects;
+    for (int i = 0; i < 3; ++i) {
+      delete samplers[i];
+    }
+    // delete[] Ls;
     reporter.Update();
     PBRT_FINISHED_RENDERTASK(taskNum);
 }
@@ -275,10 +232,12 @@ void RendernetRendererTask::Run() {
 
 
 // RendernetRenderer Method Definitions
-RendernetRenderer::RendernetRenderer(Sampler *s, Camera *c,
+RendernetRenderer::RendernetRenderer(Sampler *s, Sampler *s2, Sampler *rs, Camera *c,
                                  SurfaceIntegrator *si, VolumeIntegrator *vi,
                                  int tSz, int recSamples, bool useCamSpaceNrm) {
     sampler = s;
+    sampler2 = s2;
+    sampler_recorded = rs;
     camera = c;
     surfaceIntegrator = si;
     volumeIntegrator = vi;
@@ -287,12 +246,17 @@ RendernetRenderer::RendernetRenderer(Sampler *s, Camera *c,
     useCameraSpaceNormals = useCamSpaceNrm;
 
     maxDepth = surfaceIntegrator->maxDepth();
-    printf("sI's maxdepth %d\n", maxDepth);
+    if(maxDepth != 5) {
+      Error("Rendernet's sampler structure only supports path length 5.\n");
+      return;
+    }
 }
 
 
 RendernetRenderer::~RendernetRenderer() {
     delete sampler;
+    delete sampler2;
+    delete sampler_recorded;
     delete camera;
     delete surfaceIntegrator;
     delete volumeIntegrator;
@@ -329,22 +293,16 @@ void RendernetRenderer::Render(const Scene *scene) {
     }
     int nTasks = xRes*yRes / (tileSize*tileSize);
 
-    int maxSamples = sampler->MaximumSampleCount();
-    if(recordedSamples > maxSamples) {
-      Error("You asked to record more samples (%d) than"
-          " what is used for ground-truth (%d)", recordedSamples, maxSamples);
-      return;
-    }
-
-    printf("Resolution %dx%d, %d tiles with size %d. Saving %d samples (ground truth at %d)\n",
-        xRes, yRes, nTasks, tileSize, recordedSamples, maxSamples);
+    printf("Resolution %dx%d, %d tiles with size %d. References with %d and %d samples. Input with %d samples)\n",
+        xRes, yRes, nTasks, tileSize, sampler->MaximumSampleCount(), sampler2->MaximumSampleCount(), sampler_recorded->MaximumSampleCount());
 
     ProgressReporter reporter(nTasks, "Rendering");
     vector<Task *> renderTasks;
     for (int i = 0; i < nTasks; ++i) {
-      renderTasks.push_back(new RendernetRendererTask(scene, this, camera,
-                                                    reporter, sampler, sample, 
-                                                    nTasks-1-i, nTasks));
+      renderTasks.push_back(
+          new RendernetRendererTask(
+            scene, this, camera, reporter, sampler, sampler2,
+            sampler_recorded, sample, nTasks-1-i, nTasks));
     }
     EnqueueTasks(renderTasks);
     WaitForAllTasks();
@@ -363,7 +321,9 @@ void RendernetRenderer::Render(const Scene *scene) {
 Spectrum RendernetRenderer::Li(const Scene *scene,
         const RayDifferential &ray, const Sample *sample, RNG &rng,
         MemoryArena &arena, Intersection *isect, Spectrum *T) const {
-  return RecordedLi(scene, ray, sample, rng, arena, isect, T, NULL).L;
+  // return RecordedLi(scene, ray, sample, rng, arena, isect, T, NULL).L;
+  throw;
+  return Spectrum(0.0f);
 }
 
 
@@ -377,26 +337,26 @@ RadianceQueryRecord RendernetRenderer::RecordedLi(const Scene *scene,
     if (!T) T = &localT;
     Intersection localIsect;
     if (!isect) isect = &localIsect;
-    Spectrum Li = 0.f;
-    Spectrum Li_diffuse = 0.f;
+    RadianceQueryRecord rq_rec;
     if (scene->Intersect(ray, isect)) {
-        RadianceQueryRecord ret = surfaceIntegrator->RecordedLi(
+        rq_rec = surfaceIntegrator->RecordedLi(
             scene, this, ray, *isect, sample, rng, arena, sr, camera);
-        Li = ret.L;
-        Li_diffuse = ret.diffuse_L;
-    }
-    else {
+    } else {
         // Handle ray that doesn't intersect any geometry
-        Spectrum contrib;
+        Spectrum Li;
         for (uint32_t i = 0; i < scene->lights.size(); ++i) {
            Li += scene->lights[i]->Le(ray);
         }
+
+        // No intersection
+        Normal default_n;
+        rq_rec = RadianceQueryRecord(
+            Li, Spectrum(0.0f), Spectrum(0.0f), default_n, -1.0f, 0.0f);
 
         if(sr) {
           Transform tx;
           camera->CameraToWorld.Interpolate(sample->time, &tx);
           Spectrum zero = 0.;
-          Normal default_n;
           sr->normal_at_first.push_back(default_n);
           sr->depth_at_first.push_back(-1.0f);  // no intersection
           sr->normal.push_back(default_n);
@@ -408,6 +368,7 @@ RadianceQueryRecord RendernetRenderer::RecordedLi(const Scene *scene,
           sr->radiance_diffuse.push_back(zero);
           sr->radiance_diffuse_indirect.push_back(zero);
           sr->radiance_specular.push_back(Li); // We only have the scene lights/envmap contributions
+
           std::vector<float> p(4*sr->maxDepth);
           sr->probabilities.push_back(p);
           std::vector<float> ld(2*sr->maxDepth);
@@ -420,7 +381,9 @@ RadianceQueryRecord RendernetRenderer::RecordedLi(const Scene *scene,
     Spectrum Lvi = volumeIntegrator->Li(scene, this, ray, sample, rng,
                                         T, arena);
     
-    return RadianceQueryRecord(*T * Li, *T * Li_diffuse);
+    // TODO: multiply radiance by *T if using transmissive media
+    return rq_rec;
+    // return RadianceQueryRecord(*T * Li, *T * Li_diffuse);
 }
 
 

@@ -12,10 +12,17 @@ using std::vector;
 
 class RadianceQueryRecord {
 public:
-  RadianceQueryRecord() : L(0.0f), diffuse_L(0.0f) {};
-  RadianceQueryRecord(Spectrum a, Spectrum b) : L(a), diffuse_L(b) {};
-  Spectrum L;
-  Spectrum diffuse_L;
+  RadianceQueryRecord();
+  RadianceQueryRecord(
+      Spectrum radiance, Spectrum diffuse, Spectrum albedo, Normal nrm, 
+      float depth, bool visibility);
+
+  void add(const RadianceQueryRecord &other, float rayWeight);
+  bool isValid();
+  int count;
+
+  std::vector<float> buffer;
+  std::vector<float> var_buffer;
 };
 
 class LightQueryRecord {
@@ -43,6 +50,7 @@ public:
   static int version;
   static int sample_features;
   static int pixel_features;
+  static int buffer_channels;
 
   SampleRecord(
       int x, int y, int tilesize, int sample_count, int spp, int maxDepth,
@@ -51,6 +59,7 @@ public:
       bool useCameraSpaceNormals);
   void save(const char* fname);
   void set_kpcn() { is_kpcn = true; };
+  void add_image_sample(const RadianceQueryRecord &r, int sampler_idx);
 
   int tile_x;
   int tile_y;
@@ -93,11 +102,12 @@ public:
   vector<vector<uint16_t> > bounce_type;  // see core/reflection.h
 
   // suffix
-  vector<RGBSpectrum> ground_truth;
-  vector<RGBSpectrum> ground_truth_diffuse;
-  vector<RGBSpectrum> ground_truth_variance;
-  vector<RGBSpectrum> lowspp;
-  vector<RGBSpectrum> lowspp_variance;
+  // vector<RGBSpectrum> ground_truth;
+  // vector<RGBSpectrum> ground_truth_diffuse;
+  // vector<RGBSpectrum> ground_truth_variance;
+
+  vector<vector<float> > image_data;
+  
 
 private:
   bool is_kpcn;

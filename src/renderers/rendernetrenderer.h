@@ -16,8 +16,10 @@
 class RendernetRenderer : public Renderer {
 public:
     // RendernetRenderer Public Methods
-    RendernetRenderer(Sampler *s, Camera *c, SurfaceIntegrator *si,
-                    VolumeIntegrator *vi, int tileSize, int recordedSamples, bool useCameraSpaceNormals);
+    RendernetRenderer(
+        Sampler *s, Sampler *s2, Sampler *rs, Camera *c, SurfaceIntegrator *si,
+        VolumeIntegrator *vi, int tileSize, 
+        int recordedSamples, bool useCameraSpaceNormals);
     ~RendernetRenderer();
     void Render(const Scene *scene);
     Spectrum Li(const Scene *scene, const RayDifferential &ray,
@@ -36,6 +38,8 @@ public:
 private:
     // RendernetRenderer Private Data
     Sampler *sampler;
+    Sampler *sampler2;
+    Sampler *sampler_recorded;
     Camera *camera;
     SurfaceIntegrator *surfaceIntegrator;
     VolumeIntegrator *volumeIntegrator;
@@ -48,23 +52,27 @@ class RendernetRendererTask : public Task {
 public:
     // RendernetRendererTask Public Methods
     RendernetRendererTask(const Scene *sc, RendernetRenderer *ren, Camera *c,
-                        ProgressReporter &pr, Sampler *ms, Sample *sam, 
+                        ProgressReporter &pr, 
+                        Sampler *ms, Sampler *ms2, Sampler* rs,
+                        Sample *sam, 
                         int tn, int tc)
-      : reporter(pr), max_radiance(0.f)
+      : reporter(pr)
     {
-        scene = sc; renderer = ren; camera = c; mainSampler = ms;
+        scene = sc; renderer = ren; camera = c; 
+        mainSampler = ms; mainSampler2 = ms2; recordedSampler = rs;
         origSample = sam; taskNum = tn; taskCount = tc;
     }
     void Run();
 
     char fname[64];
-    float max_radiance;
 private:
     // RendernetRendererTask Private Data
     const Scene *scene;
     const RendernetRenderer *renderer;
     Camera *camera;
     Sampler *mainSampler;
+    Sampler *mainSampler2;
+    Sampler *recordedSampler;
     ProgressReporter &reporter;
     Sample *origSample;
     int taskNum, taskCount;
