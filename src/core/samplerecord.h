@@ -15,7 +15,7 @@ public:
   RadianceQueryRecord();
   RadianceQueryRecord(
       Spectrum radiance, Spectrum diffuse, Spectrum albedo, Normal nrm, 
-      float depth, bool visibility);
+      float depth, bool visibility, bool hasHit);
 
   void add(const RadianceQueryRecord &other, float rayWeight);
   bool isValid();
@@ -95,6 +95,7 @@ public:
   vector<Normal> normal;
   vector<float> depth;
   vector<float> visibility;
+  vector<float> hasHit;
   vector<RGBSpectrum> albedo;
   vector<RGBSpectrum> albedo_at_first;
   vector<vector<float> > probabilities;

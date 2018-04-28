@@ -363,7 +363,7 @@ RadianceQueryRecord RendernetRenderer::RecordedLi(const Scene *scene,
         // No intersection
         Normal default_n;
         rq_rec = RadianceQueryRecord(
-            Li, Spectrum(0.0f), Spectrum(0.0f), default_n, -1.0f, 0.0f);
+            Li, Spectrum(0.0f), Spectrum(0.0f), default_n, 0.0f, false, false);
 
         if(sr) {
           Transform tx;
@@ -374,6 +374,7 @@ RadianceQueryRecord RendernetRenderer::RecordedLi(const Scene *scene,
           sr->normal.push_back(default_n);
           sr->depth.push_back(-1.0f);  // no intersection
           sr->visibility.push_back(0.0f);
+          sr->hasHit.push_back(0.0f);
           sr->albedo.push_back(Spectrum(0.0f));
           sr->albedo_at_first.push_back(Spectrum(0.0f));
 

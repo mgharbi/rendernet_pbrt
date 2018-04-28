@@ -6,7 +6,7 @@
 #include <lz4frame.h>
 
 int SampleRecord::version = 20180427;
-int SampleRecord::buffer_channels = 14;
+int SampleRecord::buffer_channels = 15;
 int SampleRecord::sample_features = 
   5   // dx, dy, u, v, t
   + 3*2 // rgb*(diffuse + specular)
@@ -15,38 +15,41 @@ int SampleRecord::sample_features =
   + 1   // depth_at_first
   + 1   // depth
   + 1   // visibility
+  + 1   // hit
   + 3   // albedo_at_first
   + 3;  // albedo
 int SampleRecord::pixel_features = SampleRecord::buffer_channels*2*2; // 2 references with variance
 
 RadianceQueryRecord::RadianceQueryRecord() {
   count = 0;
-  buffer = std::vector<float>(14, 0.0f);
-  var_buffer = std::vector<float>(14, 0.0f);
+  buffer = std::vector<float>(15, 0.0f);
+  var_buffer = std::vector<float>(15, 0.0f);
 }
 
 RadianceQueryRecord::RadianceQueryRecord(
       Spectrum radiance, Spectrum diffuse, Spectrum albedo, Normal nrm, 
-      float depth, bool visibility) {
+      float depth, bool visibility, bool hasHit) {
   count = 1;
-  buffer = std::vector<float>(14, 0.0f);
-  var_buffer = std::vector<float>(14, 0.0f);
+  buffer = std::vector<float>(15, 0.0f);
+  var_buffer = std::vector<float>(15, 0.0f);
 
-  float rgb[3];
-  radiance.ToRGB(rgb);
   float rgb_d[3];
   diffuse.ToRGB(rgb_d);
+  float rgb_s[3];
+  Spectrum specular = radiance-diffuse;
+  specular.ToRGB(rgb_s);  // specular
   float rgb_a[3];
   albedo.ToRGB(rgb_a);
 
-  std::copy(rgb, rgb+3, buffer.begin());
-  std::copy(rgb_d, rgb_d+3, buffer.begin() + 3);
+  std::copy(rgb_d, rgb_d+3, buffer.begin());
+  std::copy(rgb_s, rgb_s+3, buffer.begin() + 3);
   std::copy(rgb_a, rgb_a+3, buffer.begin() + 6);
   buffer[9]  = nrm.x;
   buffer[10] = nrm.y;
   buffer[11] = nrm.z;
   buffer[12] = depth;
   buffer[13] = visibility ? 1.0f : 0.0f;
+  buffer[14] = hasHit ? 1.0f : 0.0f;
 }
 
 void RadianceQueryRecord::add(const RadianceQueryRecord &other, float rayWeight) {
@@ -134,6 +137,7 @@ SampleRecord::SampleRecord(
   normal.reserve(tileSize*tileSize*sample_count);
   depth.reserve(tileSize*tileSize*sample_count);
   visibility.reserve(tileSize*tileSize*sample_count);
+  hasHit.reserve(tileSize*tileSize*sample_count);
   albedo.reserve(tileSize*tileSize*sample_count);
   albedo_at_first.reserve(tileSize*tileSize*sample_count);
   probabilities.reserve(tileSize*tileSize*sample_count);
@@ -180,6 +184,8 @@ void SampleRecord::check_sizes() {
     Error("incorrect depth");
   if ((int)visibility.size() != tileSize*tileSize*sample_count)
     Error("incorrect visibility");
+  if ((int)hasHit.size() != tileSize*tileSize*sample_count)
+    Error("incorrect hasHit");
   if ((int)albedo.size() != tileSize*tileSize*sample_count)
     Error("incorrect albedo");
   if ((int)albedo_at_first.size() != tileSize*tileSize*sample_count)
@@ -435,6 +441,7 @@ void SampleRecord::save(const char* fname) {
     write_sample_buffer(sample_id, depth_at_first, sstream);
     write_sample_buffer(sample_id, depth, sstream);
     write_sample_buffer(sample_id, visibility, sstream);
+    write_sample_buffer(sample_id, hasHit, sstream);
     write_rgb_sample_buffer(sample_id, albedo_at_first, sstream);
     write_rgb_sample_buffer(sample_id, albedo, sstream);
     // write_float_path_data(sample_id, 4, probabilities, sstream);

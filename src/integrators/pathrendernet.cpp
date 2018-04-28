@@ -45,8 +45,8 @@ RadianceQueryRecord PathRendernetIntegrator::RecordedLi(const Scene *scene, cons
     float hitDistance = 0.0f;
     Normal nrm;
     Normal nrm_at_first;
-    float depth = -1.0f;
-    float depth_at_first = -1.0f;
+    float depth = 0.0f;
+    float depth_at_first = 0.0f;
     Spectrum albedo = 0.f;
     Spectrum albedo_at_first = 0.f;
 
@@ -166,7 +166,6 @@ RadianceQueryRecord PathRendernetIntegrator::RecordedLi(const Scene *scene, cons
 
           depth_at_first = hitDistance;
           albedo_at_first = currAlbedo;
-          // isLightVisible = qr.isLightVisible;
         }
 
         // record value at first rough 
@@ -275,6 +274,7 @@ RadianceQueryRecord PathRendernetIntegrator::RecordedLi(const Scene *scene, cons
       sr->depth_at_first.push_back(depth_at_first);
       sr->depth.push_back(depth);
       sr->visibility.push_back(isLightVisible ? 1.0 : 0.0);
+      sr->hasHit.push_back(1.0);
       sr->albedo.push_back(albedo);
       sr->albedo_at_first.push_back(albedo_at_first);
 
@@ -287,7 +287,7 @@ RadianceQueryRecord PathRendernetIntegrator::RecordedLi(const Scene *scene, cons
     }
 
     return RadianceQueryRecord(
-        L, Ldiffuse, albedo_at_first, nrm_at_first, depth_at_first, isLightVisible);
+        L, Ldiffuse, albedo_at_first, nrm_at_first, depth_at_first, isLightVisible, true);
 }
 
 
