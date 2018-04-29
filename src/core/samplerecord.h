@@ -18,7 +18,7 @@ public:
       float depth, bool visibility, bool hasHit);
 
   void add(const RadianceQueryRecord &other, float rayWeight);
-  bool isValid();
+  Spectrum check_radiance(Spectrum &r);
   int count;
 
   std::vector<float> buffer;

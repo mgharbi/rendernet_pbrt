@@ -33,6 +33,10 @@ RadianceQueryRecord::RadianceQueryRecord(
   buffer = std::vector<float>(15, 0.0f);
   var_buffer = std::vector<float>(15, 0.0f);
 
+  radiance = check_radiance(radiance);
+  diffuse = check_radiance(diffuse);
+  albedo = check_radiance(albedo);
+
   float rgb_d[3];
   diffuse.ToRGB(rgb_d);
   float rgb_s[3];
@@ -71,21 +75,21 @@ void RadianceQueryRecord::add(const RadianceQueryRecord &other, float rayWeight)
   // TODO: final var should divide by (n-1)
 }
 
-bool RadianceQueryRecord::isValid() {
-  // if (L.HasNaNs() || diffuse_L.HasNaNs()) {
-  //   Error("Not-a-number radiance value returned "
-  //       "for image sample.  Setting to black.");
-  //   return false;
-  // } else if (L.y() < -1e-5 || diffuse_L.y() < -1e-5 ) {
-  //   Error("Negative luminance value, %f, returned "
-  //       "for image sample.  Setting to black.", L.y());
-  //   return false;
-  // } else if (isinf(L.y()), isinf(diffuse_L.y())) {
-  //   Error("Infinite luminance value returned "
-  //       "for image sample.  Setting to black.");
-  //   return false;
-  // }
-  return true;
+Spectrum RadianceQueryRecord::check_radiance(Spectrum &r) {
+  if (r.HasNaNs()) {
+    Error("Not-a-number radiance value returned "
+        "for image sample.  Setting to black.");
+    return Spectrum(0.0f);
+  } else if (r.y() < 0) {
+    Error("Negative luminance value, %f, returned "
+        "for image sample.  Setting to black.", r.y());
+    return Spectrum(0.0f);
+  } else if (isinf(r.y())) {
+    Error("Infinite luminance value returned "
+        "for image sample.  Setting to black.");
+    return Spectrum(0.0f);
+  }
+  return r;
 }
 
 void LightQueryRecord::set_angles(Vector wi) {
