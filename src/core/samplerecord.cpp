@@ -5,7 +5,7 @@
 #include <iterator>
 #include <lz4frame.h>
 
-int SampleRecord::version = 20180427;
+int SampleRecord::version = 20180430;
 int SampleRecord::buffer_channels = 15;
 int SampleRecord::sample_features = 
   5   // dx, dy, u, v, t
@@ -71,8 +71,6 @@ void RadianceQueryRecord::add(const RadianceQueryRecord &other, float rayWeight)
     float delta2 = other.buffer[i] - mean;
     var_buffer[i] += delta*delta2;
   }
-
-  // TODO: final var should divide by (n-1)
 }
 
 Spectrum RadianceQueryRecord::check_radiance(Spectrum &r) {
@@ -368,9 +366,16 @@ void SampleRecord::add_image_sample(const RadianceQueryRecord &r, int sampler_id
   for (int i = 0; i < buffer_channels; ++i) {
     image_data[sampler_idx*buffer_channels*2 + i].push_back(r.buffer[i]);
     float var = 0.f;
+    // TODO: final var should divide by (n-1)
     if (r.count > 1) {
       var = r.var_buffer[i] / (r.count-1);
     }
+
+    // Monte-Carlo variance estimate
+    if (r.count > 0) {
+      var /= r.count;
+    }
+
     image_data[sampler_idx*buffer_channels*2 + i + buffer_channels].push_back(var);
   }
 }
@@ -397,6 +402,7 @@ void SampleRecord::save(const char* fname) {
     f.write((char*)&image_width, sizeof(int));
     f.write((char*)&image_height, sizeof(int));
     f.write((char*)&sample_count, sizeof(int));
+    f.write((char*)&spp, sizeof(int));
     f.write((char*)&sample_features, sizeof(int));
     f.write((char*)&pixel_features, sizeof(int));
     f.write((char*)&maxDepth, sizeof(int));
