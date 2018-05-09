@@ -113,6 +113,7 @@ public:
 private:
   bool is_kpcn;
   void check_sizes();
+  bool has_nans();
 
   void normalize_distances();
   void normalize_probabilities();

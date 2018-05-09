@@ -363,15 +363,15 @@ int SampleRecord::write_compressed(std::stringstream &fi, std::ostream &f) {
 }
 
 void SampleRecord::add_image_sample(const RadianceQueryRecord &r, int sampler_idx) {
+  // TODO: normalize normals...
   for (int i = 0; i < buffer_channels; ++i) {
     image_data[sampler_idx*buffer_channels*2 + i].push_back(r.buffer[i]);
     float var = 0.f;
-    // TODO: final var should divide by (n-1)
     if (r.count > 1) {
       var = r.var_buffer[i] / (r.count-1);
     }
 
-    // Monte-Carlo variance estimate
+    // Monte-Carlo variance estimate: 1/n * var
     if (r.count > 0) {
       var /= r.count;
     }
@@ -380,10 +380,66 @@ void SampleRecord::add_image_sample(const RadianceQueryRecord &r, int sampler_id
   }
 }
 
-void SampleRecord::save(const char* fname) {
-  std::ofstream f(fname, std::ios::binary);
+bool SampleRecord::has_nans() {
+  for(int s = 0; s < tileSize*tileSize*sample_count; ++s) {
+    if ( isnan(pixel_x[s]) )
+      return true;
+    if ( isnan(pixel_y[s]) )
+      return true;
+    if ( isnan(lens_u[s]) )
+      return true;
+    if ( isnan(lens_v[s]) )
+      return true;
+    if ( isnan(time[s]) )
+      return true;
+    if ( radiance_diffuse[s].HasNaNs() )
+      return true;
+    if ( radiance_diffuse_indirect[s].HasNaNs() )
+      return true;
+    if ( radiance_specular[s].HasNaNs() )
+      return true;
+    if ( isnan(normal[s].x) || isnan(normal[s].y) || isnan(normal[s].z))
+      return true;
+    if ( isnan(normal_at_first[s].x) || isnan(normal_at_first[s].y) || isnan(normal_at_first[s].z))
+      return true;
+    if ( isnan(depth[s]) )
+      return true;
+    if ( isnan(depth_at_first[s]) )
+      return true;
+    if ( isnan(visibility[s]) )
+      return true;
+    if ( isnan(hasHit[s]) )
+      return true;
+    if ( albedo[s].HasNaNs() )
+      return true;
+    if ( albedo_at_first[s].HasNaNs() )
+      return true;
+    for(int pidx=0; pidx < 4*maxDepth; ++pidx) {
+      if ( isnan(probabilities[s][pidx]) )
+        return true;
+    }
+    for(int pidx=0; pidx < 2*maxDepth; ++pidx) {
+      if ( isnan(light_directions[s][pidx]) )
+        return true;
+    }
+  }
+  for(int p = 0; p < tileSize*tileSize; ++p) {
+    for (int i = 0; i < buffer_channels ; ++i) {
+      if ( isnan(image_data[i][p]) )
+        return true;
+    }
+  }
+  return false;
+}
 
+void SampleRecord::save(const char* fname) {
   check_sizes();
+  if (has_nans() ){
+    Error("NaNs in sample record, skipping save.");
+    return;
+  }
+
+  std::ofstream f(fname, std::ios::binary);
 
   // Keep distances unnormalized for NFOR and KPCN
   if(!is_kpcn) {
@@ -391,9 +447,12 @@ void SampleRecord::save(const char* fname) {
     normalize_probabilities();
   }
 
-  if (sample_count <= 0 || sample_count > spp)
+  if (sample_count <= 0 || sample_count > spp) {
     Error("saved samples should be higher than 0 and lower than spp %d, got %d.",
         spp, sample_count);
+    return;
+  }
+
 
   // Write metadata header
   {
