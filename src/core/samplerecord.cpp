@@ -5,33 +5,33 @@
 #include <iterator>
 #include <lz4frame.h>
 
-int SampleRecord::version = 20180430;
+int SampleRecord::version = 20180626;
 int SampleRecord::buffer_channels = 15;
 int SampleRecord::sample_features = 
   5   // dx, dy, u, v, t
   + 3*2 // rgb*(diffuse + specular)
-  + 3   // normals_at_first
-  + 3   // normals
-  + 1   // depth_at_first
+  // + 3   // normals_at_first
+  // + 3   // normals
+  // + 1   // depth_at_first
   + 1   // depth
-  + 1   // visibility
-  + 1   // hit
-  + 3   // albedo_at_first
+  // + 1   // visibility
+  // + 1   // hit
+  // + 3   // albedo_at_first
   + 3;  // albedo
 int SampleRecord::pixel_features = SampleRecord::buffer_channels*2*2; // 2 references with variance
 
 RadianceQueryRecord::RadianceQueryRecord() {
   count = 0;
-  buffer = std::vector<float>(15, 0.0f);
-  var_buffer = std::vector<float>(15, 0.0f);
+  buffer = std::vector<float>(SampleRecord::buffer_channels, 0.0f);
+  var_buffer = std::vector<float>(SampleRecord::buffer_channels, 0.0f);
 }
 
 RadianceQueryRecord::RadianceQueryRecord(
       Spectrum radiance, Spectrum diffuse, Spectrum albedo, Normal nrm, 
       float depth, bool visibility, bool hasHit) {
   count = 1;
-  buffer = std::vector<float>(15, 0.0f);
-  var_buffer = std::vector<float>(15, 0.0f);
+  buffer = std::vector<float>(SampleRecord::buffer_channels, 0.0f);
+  var_buffer = std::vector<float>(SampleRecord::buffer_channels, 0.0f);
 
   radiance = check_radiance(radiance);
   diffuse = check_radiance(diffuse);
@@ -495,8 +495,6 @@ void SampleRecord::save(const char* fname) {
   // Write sample data
   for(int sample_id = 0; sample_id < sample_count; ++sample_id) {
     std::stringstream sstream;
-    // write_sample_buffer(sample_id, pixel_x, sstream);
-    // write_sample_buffer(sample_id, pixel_y, sstream);
     write_sample_buffer(sample_id, subpixel_x, sstream);
     write_sample_buffer(sample_id, subpixel_y, sstream);
     write_sample_buffer(sample_id, lens_u, sstream);
@@ -504,18 +502,17 @@ void SampleRecord::save(const char* fname) {
     write_sample_buffer(sample_id, time, sstream);
     write_rgb_sample_buffer(sample_id, radiance_diffuse, sstream);
     write_rgb_sample_buffer(sample_id, radiance_specular, sstream);
-    // write_rgb_sample_buffer(sample_id, radiance_diffuse_indirect, sstream);
-    write_normal_sample_buffer(sample_id, normal_at_first, sstream);
-    write_normal_sample_buffer(sample_id, normal, sstream);
-    write_sample_buffer(sample_id, depth_at_first, sstream);
+    // write_normal_sample_buffer(sample_id, normal_at_first, sstream);
+    // write_normal_sample_buffer(sample_id, normal, sstream);
+    // write_sample_buffer(sample_id, depth_at_first, sstream);
     write_sample_buffer(sample_id, depth, sstream);
-    write_sample_buffer(sample_id, visibility, sstream);
-    write_sample_buffer(sample_id, hasHit, sstream);
-    write_rgb_sample_buffer(sample_id, albedo_at_first, sstream);
+    // write_sample_buffer(sample_id, visibility, sstream);
+    // write_sample_buffer(sample_id, hasHit, sstream);
+    // write_rgb_sample_buffer(sample_id, albedo_at_first, sstream);
     write_rgb_sample_buffer(sample_id, albedo, sstream);
     // write_float_path_data(sample_id, 4, probabilities, sstream);
-    write_float_path_data(sample_id, 2, light_directions, sstream);
-    write_bt_sample_buffer(sample_id, bounce_type, sstream);
+    // write_float_path_data(sample_id, 2, light_directions, sstream);
+    // write_bt_sample_buffer(sample_id, bounce_type, sstream);
 
     write_compressed(sstream, f);
   }

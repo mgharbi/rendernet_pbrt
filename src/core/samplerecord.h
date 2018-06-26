@@ -10,6 +10,28 @@
 
 using std::vector;
 
+/*! \enum FeatureType
+ *
+ *  Detailed description
+ */
+enum FeatureType {
+  DX = 0,
+  DY = 1,
+  LENS_U = 2,
+  LENS_V = 3,
+  T = 4,
+
+  RADIANCE = 5,
+  DIFFUSE = 5,
+  SPECULAR = 5,
+  ALBEDO = 5,
+
+  NORMAL = 5,
+  DEPTH = 5,
+  VISIBILITY = 5,
+
+};
+
 class RadianceQueryRecord {
 public:
   RadianceQueryRecord();
