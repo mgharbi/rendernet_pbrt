@@ -10,12 +10,12 @@ int SampleRecord::buffer_channels = 15;
 int SampleRecord::sample_features = 
   5   // dx, dy, u, v, t
   + 3*2 // rgb*(diffuse + specular)
-  // + 3   // normals_at_first
+  + 3  // normals_at_first
   // + 3   // normals
-  // + 1   // depth_at_first
-  + 1   // depth
-  // + 1   // visibility
-  // + 1   // hit
+  + 1   // depth_at_first
+  // + 1   // depth
+  + 1   // visibility
+  + 1   // hit
   // + 3   // albedo_at_first
   + 3;  // albedo
 int SampleRecord::pixel_features = SampleRecord::buffer_channels*2*2; // 2 references with variance
@@ -502,14 +502,14 @@ void SampleRecord::save(const char* fname) {
     write_sample_buffer(sample_id, time, sstream);
     write_rgb_sample_buffer(sample_id, radiance_diffuse, sstream);
     write_rgb_sample_buffer(sample_id, radiance_specular, sstream);
-    // write_normal_sample_buffer(sample_id, normal_at_first, sstream);
+    write_normal_sample_buffer(sample_id, normal_at_first, sstream);
     // write_normal_sample_buffer(sample_id, normal, sstream);
-    // write_sample_buffer(sample_id, depth_at_first, sstream);
-    write_sample_buffer(sample_id, depth, sstream);
-    // write_sample_buffer(sample_id, visibility, sstream);
-    // write_sample_buffer(sample_id, hasHit, sstream);
-    // write_rgb_sample_buffer(sample_id, albedo_at_first, sstream);
-    write_rgb_sample_buffer(sample_id, albedo, sstream);
+    write_sample_buffer(sample_id, depth_at_first, sstream);
+    // write_sample_buffer(sample_id, depth, sstream);
+    write_sample_buffer(sample_id, visibility, sstream);
+    write_sample_buffer(sample_id, hasHit, sstream);
+    write_rgb_sample_buffer(sample_id, albedo_at_first, sstream);
+    // write_rgb_sample_buffer(sample_id, albedo, sstream);
     // write_float_path_data(sample_id, 4, probabilities, sstream);
     // write_float_path_data(sample_id, 2, light_directions, sstream);
     // write_bt_sample_buffer(sample_id, bounce_type, sstream);

@@ -254,7 +254,6 @@ RendernetRenderer::RendernetRenderer(Sampler *s, Sampler *s2, Sampler *rs, Camer
     maxDepth = surfaceIntegrator->maxDepth();
     if(maxDepth != 5) {
       Error("Rendernet's sampler structure only supports path length 5.\n");
-      return;
     }
 }
 

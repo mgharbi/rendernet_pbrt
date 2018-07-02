@@ -117,7 +117,10 @@ RadianceQueryRecord PathRendernetIntegrator::RecordedLi(const Scene *scene, cons
         light_directions[2*bounces + 0] = qr.theta;
         light_directions[2*bounces + 1] = qr.phi;
 
-        isLightVisible = isLightVisible || qr.isLightVisible;
+        // // Light visibility at first bounce
+        // if ( bounces ==0 ) {
+        //   isLightVisible = isLightVisible || qr.isLightVisible;
+        // }
 
         // Sample BSDF to get new path direction
 
@@ -150,8 +153,9 @@ RadianceQueryRecord PathRendernetIntegrator::RecordedLi(const Scene *scene, cons
           isFirstNonSpecular = true;
         } 
 
-        // Save depth, normal, albedo at first non-specular
-        if (isFirstNonSpecular) {
+        // Save depth, normal, albedo at first  (should it be first non-specular?)
+        // if (isFirstNonSpecular) {
+        if (bounces == 0) {
           Normal ssn(n);
           if (Dot(ssn, ray.d) < 0) { //face forward
             ssn.x *= -1.0f;
@@ -166,6 +170,8 @@ RadianceQueryRecord PathRendernetIntegrator::RecordedLi(const Scene *scene, cons
 
           depth_at_first = hitDistance;
           albedo_at_first = currAlbedo;
+
+          isLightVisible = isLightVisible || qr.isLightVisible;
         }
 
         // record value at first rough 
