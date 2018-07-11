@@ -155,31 +155,17 @@ void RendernetRendererTask::Run() {
           // Evaluate radiance along camera ray
           // PBRT_STARTED_CAMERA_RAY_INTEGRATION(&rays[i], &samples[i]);
           if (sampler_idx == 2) {
+            // sr != NULL we save the sample, and ignore the buffer data
             RadianceQueryRecord ret = renderer->RecordedLi(scene, rays[i], &samples[i], rng,
                 arena, &isects[i], &Ts[i], sr); 
-            // sr != NULL we save the sample, and ignore the buffer data
-          } else {
-            RadianceQueryRecord ret = renderer->RecordedLi(scene, rays[i], &samples[i], rng,
-                arena, &isects[i], &Ts[i], NULL);
-            rq_rec.add(ret, rayWeight);
-          }
-          // PBRT_FINISHED_CAMERA_RAY_INTEGRATION(&rays[i], &samples[i], &Ls[i]);
-          
-          // if (!rq_rec.isValid()) {
-          //   Error("Radiance query record is malformed!");
-          //   return;
-          // }
 
-          // Record sample data
-          if( sampler_idx == 2 ) {
+            // Record sample data
             int pix_x = pixel_id % renderer->tileSize + sr->tile_x;
             int pix_y = pixel_id / renderer->tileSize + sr->tile_y;
-
             float lensU, lensV;
             ConcentricSampleDisk(samples[i].lensU, samples[i].lensV, &lensU, &lensV);
             lensU *= sr->aperture_radius;
             lensV *= sr->aperture_radius;
-
             sr->pixel_x.push_back((float) pix_x);
             sr->pixel_y.push_back((float) pix_y);
             sr->subpixel_x.push_back(samples[i].imageX-(float)pix_x);
@@ -187,9 +173,16 @@ void RendernetRendererTask::Run() {
             sr->lens_u.push_back(lensU);
             sr->lens_v.push_back(lensV);
             sr->time.push_back(samples[i].time);
+          } else {
+            RadianceQueryRecord ret = renderer->RecordedLi(scene, rays[i], &samples[i], rng,
+                arena, &isects[i], &Ts[i], NULL);
+            rq_rec.add(ret, rayWeight);
           }
+          // PBRT_FINISHED_CAMERA_RAY_INTEGRATION(&rays[i], &samples[i], &Ls[i]);
+          
         } // spp loop
 
+        // We're constructing an image
         if( sampler_idx < 2 ) {
           // Add pixel data to .bin record
           sr->add_image_sample(rq_rec, sampler_idx);
@@ -362,24 +355,27 @@ RadianceQueryRecord RendernetRenderer::RecordedLi(const Scene *scene,
         // No intersection
         Normal default_n;
         rq_rec = RadianceQueryRecord(
-            Li, Spectrum(0.0f), Spectrum(0.0f), default_n, 0.0f, false, false);
+            Li, Spectrum(0.0f), Spectrum(0.0f), default_n, -1.0f, false, false);
 
         if(sr) {
-          Transform tx;
-          camera->CameraToWorld.Interpolate(sample->time, &tx);
+          // Transform tx;
+          // camera->CameraToWorld.Interpolate(sample->time, &tx);
           Spectrum zero = 0.;
-          sr->normal_at_first.push_back(default_n);
-          sr->depth_at_first.push_back(-1.0f);  // no intersection
-          sr->normal.push_back(default_n);
-          sr->depth.push_back(-1.0f);  // no intersection
-          sr->visibility.push_back(0.0f);
-          sr->hasHit.push_back(0.0f);
-          sr->albedo.push_back(Spectrum(0.0f));
-          sr->albedo_at_first.push_back(Spectrum(0.0f));
-
           sr->radiance_diffuse.push_back(zero);
           sr->radiance_diffuse_indirect.push_back(zero);
           sr->radiance_specular.push_back(Li); // We only have the scene lights/envmap contributions
+
+          sr->albedo.push_back(Spectrum(0.0f));
+          sr->albedo_at_first.push_back(Spectrum(0.0f));
+          sr->normal_at_first.push_back(default_n);
+          sr->normal.push_back(default_n);
+
+          sr->depth_at_first.push_back(-1.0f);  // no intersection
+          sr->depth.push_back(-1.0f);  // no intersection
+
+          sr->visibility.push_back(0.0f);
+          sr->hasHit.push_back(0.0f);
+
 
           std::vector<float> p(4*sr->maxDepth);
           sr->probabilities.push_back(p);
@@ -395,7 +391,6 @@ RadianceQueryRecord RendernetRenderer::RecordedLi(const Scene *scene,
     
     // TODO: multiply radiance by *T if using transmissive media
     return rq_rec;
-    // return RadianceQueryRecord(*T * Li, *T * Li_diffuse);
 }
 
 

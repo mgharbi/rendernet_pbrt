@@ -116,9 +116,11 @@ SampleRecord::SampleRecord(
     int x, int y, int tilesize, int sample_count, int spp, int maxDepth,
     int image_width, int image_height, float scene_radius,
     float focal_distance, float aperture_radius, float fov, bool useCameraSpaceNormals)
-  : tile_x(x), tile_y(y), tileSize(tilesize), sample_count(sample_count), spp(spp), maxDepth(maxDepth+1),  // We store path 0...maxDepth
-  image_width(image_width), image_height(image_height), scene_radius(scene_radius),
-  focal_distance(focal_distance), aperture_radius(aperture_radius), fov(fov),
+  : tile_x(x), tile_y(y), tileSize(tilesize), sample_count(sample_count),
+  spp(spp), maxDepth(maxDepth+1),  // We store path 0...maxDepth
+  image_width(image_width), image_height(image_height),
+  scene_radius(scene_radius), focal_distance(focal_distance),
+  aperture_radius(aperture_radius), fov(fov),
   useCameraSpaceNormals(useCameraSpaceNormals), is_kpcn(false)
 {
   // prefix
@@ -177,9 +179,11 @@ void SampleRecord::check_sizes() {
   if ((int)radiance_specular.size() != tileSize*tileSize*sample_count)
     Error("incorrect radiance_specular");
   if ((int)normal_at_first.size() != tileSize*tileSize*sample_count)
-    Error("incorrect normal_at_first (got %lu expected %d)", normal_at_first.size(), tileSize*tileSize*sample_count);
+    Error("incorrect normal_at_first (got %lu expected %d)",
+        normal_at_first.size(), tileSize*tileSize*sample_count);
   if ((int)depth_at_first.size() != tileSize*tileSize*sample_count)
-    Error("incorrect depth  at first (got %lu expected %d)", depth_at_first.size(), tileSize*tileSize*sample_count);
+    Error("incorrect depth  at first (got %lu expected %d)",
+        depth_at_first.size(), tileSize*tileSize*sample_count);
   if ((int)normal.size() != tileSize*tileSize*sample_count)
     Error("incorrect normal");
   if ((int)depth.size() != tileSize*tileSize*sample_count)
@@ -191,9 +195,11 @@ void SampleRecord::check_sizes() {
   if ((int)albedo.size() != tileSize*tileSize*sample_count)
     Error("incorrect albedo");
   if ((int)albedo_at_first.size() != tileSize*tileSize*sample_count)
-    Error("incorrect albedo at first (got %lu expected %d)", albedo_at_first.size(), tileSize*tileSize*sample_count);
+    Error("incorrect albedo at first (got %lu expected %d)",
+        albedo_at_first.size(), tileSize*tileSize*sample_count);
   if ((int)probabilities.size() != tileSize*tileSize*sample_count)
-    Error("incorrect probabilities at first (got %lu expected %d)", probabilities.size(), tileSize*tileSize*sample_count);
+    Error("incorrect probabilities at first (got %lu expected %d)",
+        probabilities.size(), tileSize*tileSize*sample_count);
 
   for (int i = 0; i < buffer_channels ; ++i) {
     if (image_data[i].size() != tileSize*tileSize)
@@ -221,7 +227,8 @@ void SampleRecord::write_rgb_buffer(
   delete[] tmp;
 }
 
-void SampleRecord::write_sample_buffer(int sample_id, vector<float> &src, std::ostream &f) {
+void SampleRecord::write_sample_buffer(
+    int sample_id, vector<float> &src, std::ostream &f) {
   int npixels = tileSize*tileSize;
   float* tmp = new float[npixels];
   // convert to contiguous pixels
@@ -258,7 +265,8 @@ void SampleRecord::write_rgb_sample_buffer(
   delete[] tmp;
 }
 
-void SampleRecord::write_normal_sample_buffer(int sample_id, vector<Normal> &src, std::ostream &f) {
+void SampleRecord::write_normal_sample_buffer(
+    int sample_id, vector<Normal> &src, std::ostream &f) {
   int npixels = tileSize*tileSize;
   float* tmp = new float[npixels*3];
   // convert to contiguous pixels
@@ -275,7 +283,8 @@ void SampleRecord::write_normal_sample_buffer(int sample_id, vector<Normal> &src
   delete[] tmp;
 }
 
-void SampleRecord::write_float_path_data(int sample_id, int count, vector<vector<float> > &src, std::ostream &f) {
+void SampleRecord::write_float_path_data
+(int sample_id, int count, vector<vector<float> > &src, std::ostream &f) {
   int npixels = tileSize*tileSize;
   int n_proba = count*maxDepth;
   float* tmp = new float[npixels*n_proba];
@@ -294,7 +303,8 @@ void SampleRecord::write_float_path_data(int sample_id, int count, vector<vector
   delete[] tmp;
 }
 
-void SampleRecord::write_bt_sample_buffer(int sample_id, vector<vector<uint16_t> > &src, std::ostream &f) {
+void SampleRecord::write_bt_sample_buffer(
+    int sample_id, vector<vector<uint16_t> > &src, std::ostream &f) {
   int npixels = tileSize*tileSize;
   int n = maxDepth;
   uint16_t* tmp = new uint16_t[npixels*n];
@@ -325,7 +335,6 @@ void SampleRecord::normalize_distances() {
   focal_distance *= normalizer;
   // If aperture is rescaled, u, v should be as well
   aperture_radius *= normalizer;
-
 }
 
 void SampleRecord::normalize_probabilities() {
@@ -349,7 +358,6 @@ int SampleRecord::write_compressed(std::stringstream &fi, std::ostream &f) {
   const char* cstr = tmp.c_str();
   char *dst = new char[compsize];
 
-  // int nbytes = LZ4_compress_limitedOutput(cstr, dst, fi.tellp(), compsize);
   int nbytes = LZ4F_compressFrame(dst, compsize, cstr, fi.tellp(), NULL);
   if(nbytes == 0) {
     throw "could not compress";
@@ -363,7 +371,7 @@ int SampleRecord::write_compressed(std::stringstream &fi, std::ostream &f) {
 }
 
 void SampleRecord::add_image_sample(const RadianceQueryRecord &r, int sampler_idx) {
-  // TODO: normalize normals...
+  // TODO: normalize normals to be unit vectors...
   for (int i = 0; i < buffer_channels; ++i) {
     image_data[sampler_idx*buffer_channels*2 + i].push_back(r.buffer[i]);
     float var = 0.f;
@@ -400,7 +408,8 @@ bool SampleRecord::has_nans() {
       return true;
     if ( isnan(normal[s].x) || isnan(normal[s].y) || isnan(normal[s].z))
       return true;
-    if ( isnan(normal_at_first[s].x) || isnan(normal_at_first[s].y) || isnan(normal_at_first[s].z))
+    if (isnan(normal_at_first[s].x) || isnan(normal_at_first[s].y) ||
+        isnan(normal_at_first[s].z))
       return true;
     if ( isnan(depth[s]) )
       return true;
@@ -452,7 +461,6 @@ void SampleRecord::save(const char* fname) {
         spp, sample_count);
     return;
   }
-
 
   // Write metadata header
   {
