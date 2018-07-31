@@ -117,11 +117,6 @@ RadianceQueryRecord PathRendernetIntegrator::RecordedLi(const Scene *scene, cons
         light_directions[2*bounces + 0] = qr.theta;
         light_directions[2*bounces + 1] = qr.phi;
 
-        // // Light visibility at first bounce
-        // if ( bounces ==0 ) {
-        //   isLightVisible = isLightVisible || qr.isLightVisible;
-        // }
-
         // Sample BSDF to get new path direction
 
         // Get _outgoingBSDFSample_ for sampling new path direction
@@ -243,36 +238,41 @@ RadianceQueryRecord PathRendernetIntegrator::RecordedLi(const Scene *scene, cons
 
     if (sr) {
       if (nrm_at_first.HasNaNs()) {
-        nrm_at_first.x = 0.0f;
-        nrm_at_first.y = 0.0f;
-        nrm_at_first.z = 0.0f;
+        Error("normal first has nans");
+        // nrm_at_first.x = 0.0f;
+        // nrm_at_first.y = 0.0f;
+        // nrm_at_first.z = 0.0f;
       }
       if (nrm.HasNaNs()) {
-        nrm.x = 0.0f;
-        nrm.y = 0.0f;
-        nrm.z = 0.0f;
+        Error("normal has nans");
+        // nrm.x = 0.0f;
+        // nrm.y = 0.0f;
+        // nrm.z = 0.0f;
       }
       if (albedo.HasNaNs()) {
         Error("albedo has nans");
-        albedo = Spectrum(0.f);
+        // albedo = Spectrum(0.f);
       }
       if (albedo_at_first.HasNaNs()) {
         Error("albedo at first has nans");
-        albedo_at_first = Spectrum(0.f);
+        // albedo_at_first = Spectrum(0.f);
       }
       if (albedo.y() > 101.0f || albedo_at_first.y() > 101.0f) {
           Error("albedo is too high");
-          throw;
+          // throw;
       }
 
       if (Ldiffuse.HasNaNs()) {
-        Ldiffuse = Spectrum(0.f);
+          Error("diffuse has nan");
+        // Ldiffuse = Spectrum(0.f);
       }
       if (Ldiffuse_indirect.HasNaNs()) {
-        Ldiffuse_indirect = Spectrum(0.f);
+          Error("diffuse indirect has nan");
+        // Ldiffuse_indirect = Spectrum(0.f);
       }
       if (L.HasNaNs()) {
-        L = Spectrum(0.f);
+          Error("L  has nan");
+        // L = Spectrum(0.f);
       }
 
       sr->normal_at_first.push_back(nrm_at_first);

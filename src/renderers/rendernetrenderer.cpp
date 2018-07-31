@@ -114,8 +114,8 @@ void RendernetRendererTask::Run() {
         samplers[0]->xPixelStart,
         samplers[0]->yPixelStart,
         renderer->tileSize, 
-        samplers[2]->samplesPerPixel,
-        samplers[0]->samplesPerPixel,
+        samplers[2]->samplesPerPixel,  // Saved samples
+        samplers[0]->samplesPerPixel,  // Image reference
         renderer->maxDepth,
         camera->film->xResolution, camera->film->yResolution,
         sceneRadius, pcam->focalDistance,
@@ -155,7 +155,7 @@ void RendernetRendererTask::Run() {
           // Evaluate radiance along camera ray
           // PBRT_STARTED_CAMERA_RAY_INTEGRATION(&rays[i], &samples[i]);
           if (sampler_idx == 2) {
-            // sr != NULL we save the sample, and ignore the buffer data
+            // we save the sample, and ignore the buffer data
             RadianceQueryRecord ret = renderer->RecordedLi(scene, rays[i], &samples[i], rng,
                 arena, &isects[i], &Ts[i], sr); 
 
@@ -375,7 +375,6 @@ RadianceQueryRecord RendernetRenderer::RecordedLi(const Scene *scene,
 
           sr->visibility.push_back(0.0f);
           sr->hasHit.push_back(0.0f);
-
 
           std::vector<float> p(4*sr->maxDepth);
           sr->probabilities.push_back(p);
