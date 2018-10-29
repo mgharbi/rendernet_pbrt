@@ -518,8 +518,8 @@ void SampleRecord::save(const char* fname) {
     write_sample_buffer(sample_id, hasHit, sstream);
     write_rgb_sample_buffer(sample_id, albedo_at_first, sstream);
     // write_rgb_sample_buffer(sample_id, albedo, sstream);
-    // write_float_path_data(sample_id, 4, probabilities, sstream);
-    // write_float_path_data(sample_id, 2, light_directions, sstream);
+    write_float_path_data(sample_id, 4, probabilities, sstream);
+    write_float_path_data(sample_id, 2, light_directions, sstream);
     write_bt_sample_buffer(sample_id, bounce_type, sstream);
 
     write_compressed(sstream, f);
