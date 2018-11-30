@@ -171,7 +171,8 @@ objs/pbrt.o: main/pbrt.cpp
 
 objs/tools_%.o: tools/%.cpp
 	@echo "Building object $@"
-	@$(CXX) $(CXXFLAGS)  -std=c++11 -o $@ -c $<
+	@$(CXX) $(CXXFLAGS) -o $@ -c $<
+	# @$(CXX) $(CXXFLAGS)  -std=c++11 -o $@ -c $<
 
 bin/pbrt: objs/main_pbrt.o objs/libpbrt.a
 	@echo "Linking $@"
