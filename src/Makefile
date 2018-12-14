@@ -68,7 +68,7 @@ WARN=-Wall
 CWD=$(shell pwd)
 CXXFLAGS=$(OPT) $(MARCH) $(INCLUDE) $(WARN) $(DEFS)
 CCFLAGS=$(CXXFLAGS)
-# CXXFLAGS+= -std=c++11
+CXXFLAGS+= -std=c++11
 LIBS=$(LEXLIB) $(EXR_LIBDIR) $(EXRLIBS) -lm -llz4
 
 LIB_CSRCS=core/targa.c
