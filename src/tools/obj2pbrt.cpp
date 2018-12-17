@@ -906,9 +906,9 @@ int main(int argc, char *argv[]) {
   }
 
   bool normalize_uvs = true;
-  if (normalize_uvs) {
-    fprintf(stderr, "normalizing uvs\n");
-  }
+  // if (normalize_uvs) {
+  //   fprintf(stderr, "normalizing uvs\n");
+  // }
 
   std::vector<shape_t> shapes;
   const char *mtl_basepath = ""; // ?
@@ -935,10 +935,10 @@ int main(int argc, char *argv[]) {
       bounds[1][c] = std::max(bounds[1][c], mesh.positions[i]);
     }
   }
-  fprintf(f, "# Converted from \"%s\" by obj2pbrt\n", argv[1]);
-  fprintf(f, "# Scene bounds: (%f, %f, %f) - (%f, %f, %f)\n\n\n",
-         bounds[0][0], bounds[0][1], bounds[0][2],
-         bounds[1][0], bounds[1][1], bounds[1][2]);
+  // fprintf(f, "# Converted from \"%s\" by obj2pbrt\n", argv[1]);
+  // fprintf(f, "# Scene bounds: (%f, %f, %f) - (%f, %f, %f)\n\n\n",
+  //        bounds[0][0], bounds[0][1], bounds[0][2],
+  //        bounds[1][0], bounds[1][1], bounds[1][2]);
 
   int numAreaLights = 0;
   int numTriangles = 0;
@@ -1066,8 +1066,8 @@ int main(int argc, char *argv[]) {
   if (f != stdout)
     fclose(f);
 
-  fprintf(stderr, "Converted %d meshes (%d triangles, %d mesh emitters).\n",
-          numMeshes, numTriangles, numAreaLights);
+  // fprintf(stderr, "Converted %d meshes (%d triangles, %d mesh emitters).\n",
+  //         numMeshes, numTriangles, numAreaLights);
 
   return 0;
 }
