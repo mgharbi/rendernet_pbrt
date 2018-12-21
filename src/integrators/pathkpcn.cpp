@@ -230,11 +230,12 @@ RadianceQueryRecord PathKPCNIntegrator::RecordedLi(const Scene *scene, const Ren
     }  // bounces loop
 
     if (sr) {
-      sr->normal.push_back(nrm);
       sr->normal_at_first.push_back(nrm_at_first);
-      sr->depth.push_back(depth);
+      sr->normal.push_back(nrm);
       sr->depth_at_first.push_back(depth_at_first);
+      sr->depth.push_back(depth);
       sr->visibility.push_back(isLightVisible ? 1.0 : 0.0);
+      sr->hasHit.push_back(1.0);
       sr->albedo.push_back(albedo);
       sr->albedo_at_first.push_back(albedo_at_first);
 
