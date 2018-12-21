@@ -112,20 +112,16 @@ void RendernetRendererTask::Run() {
 
     int xstart, xend, ystart, yend;
     camera->film->GetPixelExtent(&xstart, &xend, &ystart, &yend);
-    printf("film: %d %d\n", xend-xstart, yend-ystart);
-      
 
     SampleRecord *sr = new SampleRecord(
-        samplers[0]->xPixelStart,
-        samplers[0]->yPixelStart,
+        samplers[0]->xPixelStart-xstart,
+        samplers[0]->yPixelStart-ystart,
         renderer->tileSize, 
         samplers[2]->samplesPerPixel,  // Saved samples
         samplers[0]->samplesPerPixel,  // Image reference
         renderer->maxDepth,
         xend-xstart,
         yend-xstart,
-        // camera->film->xResolution, 
-        // camera->film->yResolution,
         sceneRadius, pcam->focalDistance,
         pcam->lensRadius, pcam->fov,
         renderer->useCameraSpaceNormals
