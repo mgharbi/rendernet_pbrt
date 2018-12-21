@@ -115,13 +115,13 @@ void RendernetRendererTask::Run() {
 
     SampleRecord *sr = new SampleRecord(
         samplers[0]->xPixelStart-xstart,
-        samplers[0]->yPixelStart-ystart,
+        samplers[1]->yPixelStart-ystart,
         renderer->tileSize, 
         samplers[2]->samplesPerPixel,  // Saved samples
         samplers[0]->samplesPerPixel,  // Image reference
         renderer->maxDepth,
         xend-xstart,
-        yend-xstart,
+        yend-ystart,
         sceneRadius, pcam->focalDistance,
         pcam->lensRadius, pcam->fov,
         renderer->useCameraSpaceNormals
