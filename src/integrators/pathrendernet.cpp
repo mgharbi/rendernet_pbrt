@@ -292,9 +292,8 @@ RadianceQueryRecord PathRendernetIntegrator::RecordedLi(const Scene *scene, cons
       sr->bounce_type.push_back(bounce_type);
     }
 
-    // TODO(mgharbi): nrm vs nrm at first for image data?
     return RadianceQueryRecord(
-        L, Ldiffuse, albedo_at_first, nrm_at_first, depth_at_first, isLightVisible, true);
+        L, Ldiffuse, albedo, nrm, depth, isLightVisible, true);
 }
 
 
