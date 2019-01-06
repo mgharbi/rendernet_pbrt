@@ -456,8 +456,8 @@ void SampleRecord::save(const char* fname) {
     normalize_probabilities();
   }
 
-  if (sample_count <= 0 || sample_count > spp) {
-    Error("saved samples should be higher than 0 and lower than spp %d, got %d.",
+  if (sample_count <= 0) {
+    Error("saved samples should be higher than 0, got %d.",
         spp, sample_count);
     return;
   }
