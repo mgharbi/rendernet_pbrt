@@ -98,6 +98,7 @@ void RendernetRendererTask::Run() {
 
     // Declare local variables used for rendering loop
     MemoryArena arena;
+    // TODO(mgharbi): not sure why we changed this
     RNG rng(time(NULL)); // RNG rng(taskNum);
 
     Point sceneCenter;
@@ -153,7 +154,13 @@ void RendernetRendererTask::Run() {
           // Find camera ray for _sample[i]_
           // PBRT_STARTED_GENERATING_CAMERA_RAY(&samples[i]);
           float rayWeight = camera->GenerateRayDifferential(samples[i], &rays[i]);
+
+          // printf("Scaling ray differential by %0.5f (%d spp)\n", 
+          //     1.f / sqrtf(sampler->samplesPerPixel),
+          //     sampler->samplesPerPixel);
+          // TODO(mgharbi): this scaling is inconsistent between our lowspp data and the ground-truth
           rays[i].ScaleDifferentials(1.f / sqrtf(sampler->samplesPerPixel));
+
           // PBRT_FINISHED_GENERATING_CAMERA_RAY(&samples[i], &rays[i], rayWeight);
 
           // Evaluate radiance along camera ray
@@ -300,7 +307,7 @@ void RendernetRenderer::Render(const Scene *scene) {
     int nTasks = xRes*yRes / (tileSize*tileSize);
 
     printf("Resolution %dx%d, %d tiles with size %d. References with %d and %d samples. Input with %d samples)\n",
-        xRes, yRes, nTasks, tileSize, sampler->MaximumSampleCount(), sampler2->MaximumSampleCount(), sampler_recorded->MaximumSampleCount());
+        xRes, yRes, nTasks, tileSize, sampler->samplesPerPixel, sampler2->samplesPerPixel, sampler_recorded->samplesPerPixel);
 
     ProgressReporter reporter(nTasks, "Rendering");
     vector<Task *> renderTasks;

@@ -46,7 +46,8 @@ RadianceQueryRecord PathKPCNIntegrator::RecordedLi(const Scene *scene, const Ren
     Normal nrm;
     Normal nrm_at_first;
     float depth = 0.0f;
-    float depth_at_first = -1.0f;
+    float depth_at_first = 0.0f;
+    // float depth_at_first = -1.0f;
     Spectrum albedo = 0.0f;
     Spectrum albedo_at_first = 0.f;
 
