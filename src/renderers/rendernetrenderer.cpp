@@ -134,12 +134,17 @@ void RendernetRendererTask::Run() {
 
     // Allocate space for samples and intersections
     for (int sampler_idx = 0; sampler_idx < 3; ++sampler_idx) {
+      // TODO(mgharbi): no dual buffer hack:
+      if(sampler_idx == 1) {
+        continue;
+      }
+
       Sampler *sampler = samplers[sampler_idx];
 
       int maxSamples = sampler->MaximumSampleCount();
-      // TODO: isolate origsamples per sampler
       Sample *samples = origSamples[sampler_idx]->Duplicate(maxSamples);
       RayDifferential *rays = new RayDifferential[maxSamples];
+      Spectrum *Ls = new Spectrum[maxSamples];
       Spectrum *Ts = new Spectrum[maxSamples];
       Intersection *isects = new Intersection[maxSamples];
 
@@ -152,16 +157,17 @@ void RendernetRendererTask::Run() {
         // Generate camera rays and compute radiance along rays
         for (int i = 0; i < sampleCount; ++i) {
           // Find camera ray for _sample[i]_
-          // PBRT_STARTED_GENERATING_CAMERA_RAY(&samples[i]);
+          PBRT_STARTED_GENERATING_CAMERA_RAY(&samples[i]);
           float rayWeight = camera->GenerateRayDifferential(samples[i], &rays[i]);
 
           // printf("Scaling ray differential by %0.5f (%d spp)\n", 
           //     1.f / sqrtf(sampler->samplesPerPixel),
           //     sampler->samplesPerPixel);
           // TODO(mgharbi): this scaling is inconsistent between our lowspp data and the ground-truth
-          rays[i].ScaleDifferentials(1.f / sqrtf(sampler->samplesPerPixel));
+            rays[i].ScaleDifferentials(1.f / sqrtf(8192));
+          // rays[i].ScaleDifferentials(1.f / sqrtf(sampler->samplesPerPixel));
 
-          // PBRT_FINISHED_GENERATING_CAMERA_RAY(&samples[i], &rays[i], rayWeight);
+          PBRT_FINISHED_GENERATING_CAMERA_RAY(&samples[i], &rays[i], rayWeight);
 
           // Evaluate radiance along camera ray
           // PBRT_STARTED_CAMERA_RAY_INTEGRATION(&rays[i], &samples[i]);
@@ -188,10 +194,31 @@ void RendernetRendererTask::Run() {
             RadianceQueryRecord ret = renderer->RecordedLi(scene, rays[i], &samples[i], rng,
                 arena, &isects[i], &Ts[i], NULL);
             rq_rec.add(ret, rayWeight);
+
           }
-          // PBRT_FINISHED_CAMERA_RAY_INTEGRATION(&rays[i], &samples[i], &Ls[i]);
+          // TODO(mgharbi) 2019-03-06 Hack to compute the grountruth, sum diffuse + specular
+          float rgb_d[3];
+          float rgb_s[3];
+          for (int ridx = 0; ridx < 3; ++ridx) {
+            rgb_d[ridx] =  rq_rec.buffer[ridx];
+            rgb_s[ridx] =  rq_rec.buffer[3+ridx];
+          }
+          Ls[i] = RGBSpectrum::FromRGB(rgb_d) + RGBSpectrum::FromRGB(rgb_s);
+          PBRT_FINISHED_CAMERA_RAY_INTEGRATION(&rays[i], &samples[i], &Ls[i]);
           
         } // spp loop
+        
+        // Report sample results to _Sampler_, add contributions to image
+        if (sampler_idx == 0 && sampler->ReportResults(samples, rays, Ls, isects, sampleCount))
+        {
+            for (int i = 0; i < sampleCount; ++i)
+            {
+                PBRT_STARTED_ADDING_IMAGE_SAMPLE(&samples[i], &rays[i], &Ls[i], &Ts[i]);
+                camera->film->AddSample(samples[i], Ls[i]);
+                PBRT_FINISHED_ADDING_IMAGE_SAMPLE();
+            }
+        }
+
 
         // We're constructing an image
         if( sampler_idx < 2 ) {
@@ -219,6 +246,7 @@ void RendernetRendererTask::Run() {
 
       delete[] samples;
       delete[] rays;
+      delete[] Ls;
       delete[] Ts;
       delete[] isects;
     } // Loop over samplers
@@ -234,7 +262,6 @@ void RendernetRendererTask::Run() {
     for (int i = 0; i < 3; ++i) {
       delete samplers[i];
     }
-    // delete[] Ls;
     reporter.Update();
     PBRT_FINISHED_RENDERTASK(taskNum);
 }

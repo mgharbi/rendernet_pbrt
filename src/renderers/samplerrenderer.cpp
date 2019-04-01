@@ -88,7 +88,8 @@ void SamplerRendererTask::Run() {
             // Find camera ray for _sample[i]_
             PBRT_STARTED_GENERATING_CAMERA_RAY(&samples[i]);
             float rayWeight = camera->GenerateRayDifferential(samples[i], &rays[i]);
-            rays[i].ScaleDifferentials(1.f / sqrtf(sampler->samplesPerPixel));
+            rays[i].ScaleDifferentials(1.f / sqrtf(8192));
+            // rays[i].ScaleDifferentials(1.f / sqrtf(sampler->samplesPerPixel));
             PBRT_FINISHED_GENERATING_CAMERA_RAY(&samples[i], &rays[i], rayWeight);
 
             // Evaluate radiance along camera ray
