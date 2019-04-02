@@ -135,7 +135,7 @@ SampleRecord::SampleRecord(
 
   // sample data
   radiance_diffuse.reserve(tileSize*tileSize*sample_count);
-  radiance_diffuse_indirect.reserve(tileSize*tileSize*sample_count);
+  // radiance_diffuse_indirect.reserve(tileSize*tileSize*sample_count);
   radiance_specular.reserve(tileSize*tileSize*sample_count);
   normal_at_first.reserve(tileSize*tileSize*sample_count);
   depth_at_first.reserve(tileSize*tileSize*sample_count);
@@ -177,8 +177,8 @@ void SampleRecord::check_sizes() {
 
   if ((int)radiance_diffuse.size() != tileSize*tileSize*sample_count)
     Error("incorrect radiance_diffuse");
-  if ((int)radiance_diffuse_indirect.size() != tileSize*tileSize*sample_count)
-    Error("incorrect radiance_diffuse_indirect");
+  // if ((int)radiance_diffuse_indirect.size() != tileSize*tileSize*sample_count)
+  //   Error("incorrect radiance_diffuse_indirect");
   if ((int)radiance_specular.size() != tileSize*tileSize*sample_count)
     Error("incorrect radiance_specular");
   if ((int)normal_at_first.size() != tileSize*tileSize*sample_count)
@@ -405,8 +405,8 @@ bool SampleRecord::has_nans() {
       return true;
     if ( radiance_diffuse[s].HasNaNs() )
       return true;
-    if ( radiance_diffuse_indirect[s].HasNaNs() )
-      return true;
+    // if ( radiance_diffuse_indirect[s].HasNaNs() )
+    //   return true;
     if ( radiance_specular[s].HasNaNs() )
       return true;
     if ( isnan(normal[s].x) || isnan(normal[s].y) || isnan(normal[s].z))

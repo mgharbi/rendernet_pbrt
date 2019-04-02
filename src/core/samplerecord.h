@@ -111,7 +111,7 @@ public:
 
   // data
   vector<RGBSpectrum> radiance_diffuse;
-  vector<RGBSpectrum> radiance_diffuse_indirect;
+  // vector<RGBSpectrum> radiance_diffuse_indirect;
   vector<RGBSpectrum> radiance_specular;
   vector<Normal> normal_at_first;
   vector<float> depth_at_first;
