@@ -241,7 +241,7 @@ RadianceQueryRecord PathKPCNIntegrator::RecordedLi(const Scene *scene, const Ren
       sr->albedo_at_first.push_back(albedo_at_first);
 
       sr->radiance_diffuse.push_back(Ldiffuse);
-      sr->radiance_diffuse_indirect.push_back(Spectrum(0.0f));
+      // sr->radiance_diffuse_indirect.push_back(Spectrum(0.0f));
       sr->radiance_specular.push_back(L-Ldiffuse);
 
       // Fill our features with dummies

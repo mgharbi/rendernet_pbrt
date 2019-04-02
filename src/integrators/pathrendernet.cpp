@@ -31,7 +31,8 @@ RadianceQueryRecord PathRendernetIntegrator::RecordedLi(const Scene *scene, cons
         const Sample *sample, RNG &rng, MemoryArena &arena, SampleRecord *sr, Camera* camera) const {
     // Declare common path integration variables
     Spectrum pathThroughput = 1., L = 0.;
-    Spectrum pathThroughputDiffuse = 1., Ldiffuse = 0., Ldiffuse_indirect = 0.;
+    Spectrum pathThroughputDiffuse = 1., Ldiffuse = 0. ;
+      // , Ldiffuse_indirect = 0.;
     RayDifferential ray(r);
     bool specularBounce = false;
     bool foundRough = false;
@@ -61,9 +62,9 @@ RadianceQueryRecord PathRendernetIntegrator::RecordedLi(const Scene *scene, cons
           L += contrib*pathThroughput;
           if (foundRough) {
             Ldiffuse += contrib*pathThroughputDiffuse;
-            if (bounces > 0)  {
-              Ldiffuse_indirect += contrib*pathThroughputDiffuse;
-            }
+            // if (bounces > 0)  {
+            //   Ldiffuse_indirect += contrib*pathThroughputDiffuse;
+            // }
           }
         }
 
@@ -71,14 +72,14 @@ RadianceQueryRecord PathRendernetIntegrator::RecordedLi(const Scene *scene, cons
         const Point &p = bsdf->dgShading.p;
         const Normal &n = bsdf->dgShading.nn;
 
-        bool bsdf_has_diffuse = false;
-        bsdf_has_diffuse =
+        // Characterize the brdf
+        bool bsdf_has_diffuse =
             (bsdf->NumComponents(BxDFType(BSDF_DIFFUSE|BSDF_REFLECTION)) > 0);
-        bool bsdf_has_nonspecular = false;
-        bsdf_has_nonspecular = bsdf_has_diffuse ||
+        bool bsdf_has_nonspecular = bsdf_has_diffuse ||
             (bsdf->NumComponents(BxDFType(BSDF_GLOSSY|BSDF_REFLECTION)) > 0) ||
             (bsdf->NumComponents(BxDFType(BSDF_GLOSSY|BSDF_TRANSMISSION)) > 0);
 
+        // Accumulate path length
         Vector depth_vector = p-ray.o;
         hitDistance += depth_vector.Length();
 
@@ -104,15 +105,17 @@ RadianceQueryRecord PathRendernetIntegrator::RecordedLi(const Scene *scene, cons
         L += contrib*pathThroughput;
         if (!foundRough && bsdf_has_diffuse) {
           Ldiffuse += qr.diffuse_lighting*pathThroughputDiffuse;
-          if (bounces > 0)  {
-            Ldiffuse_indirect += qr.diffuse_lighting*pathThroughputDiffuse;
-          }
+          // if (bounces > 0)  {
+          //   Ldiffuse_indirect += qr.diffuse_lighting*pathThroughputDiffuse;
+          // }
         } else if (foundRough) {
           Ldiffuse += contrib*pathThroughputDiffuse;
-          if (bounces > 0)  {
-            Ldiffuse_indirect += contrib*pathThroughputDiffuse;
-          }
+          // if (bounces > 0)  {
+          //   Ldiffuse_indirect += contrib*pathThroughputDiffuse;
+          // }
         }
+
+        // Store the lighting directions
         std::copy(qr.pdfs, qr.pdfs+4, probabilities.begin()+4*bounces);
         light_directions[2*bounces + 0] = qr.theta;
         light_directions[2*bounces + 1] = qr.phi;
@@ -121,11 +124,12 @@ RadianceQueryRecord PathRendernetIntegrator::RecordedLi(const Scene *scene, cons
 
         // Get _outgoingBSDFSample_ for sampling new path direction
         BSDFSample outgoingBSDFSample;
-        if (bounces < SAMPLE_DEPTH)
-            outgoingBSDFSample = BSDFSample(sample, pathSampleOffsets[bounces],
-                                            0);
-        else
-            outgoingBSDFSample = BSDFSample(rng);
+        if (bounces < SAMPLE_DEPTH) {
+          outgoingBSDFSample = BSDFSample(sample, pathSampleOffsets[bounces], 0);
+        }
+        else {
+          outgoingBSDFSample = BSDFSample(rng);
+        }
         Vector wi;
         float pdf;
         BxDFType flags;
@@ -134,7 +138,8 @@ RadianceQueryRecord PathRendernetIntegrator::RecordedLi(const Scene *scene, cons
         bounce_type[bounces] = flags;
         Spectrum currAlbedo = bsdf->K();
 
-        // If the brdf has a diffuse component, we found our first
+        // If the brdf has a diffuse component and we have not found the first
+        // rough bounce: this is it. we found our first
         // diffuse interaction. The path is no longer purely specular.
         bool isFirstRough = false;
         if (!foundRough && bsdf_has_diffuse) {
@@ -143,13 +148,14 @@ RadianceQueryRecord PathRendernetIntegrator::RecordedLi(const Scene *scene, cons
         } 
 
         bool isFirstNonSpecular = false;
+        // If the brdf has a nonspecular component and we have not found any
+        // yet: this it is.
         if (!foundNonSpecular && bsdf_has_nonspecular) {
           foundNonSpecular = true;
           isFirstNonSpecular = true;
         } 
 
-        // Save depth, normal, albedo at first  (should it be first non-specular?)
-        // if (isFirstNonSpecular) {
+        // Record depth, normal, albedo, visibility at first bounce
         if (bounces == 0) {
           Normal ssn(n);
           if (Dot(ssn, ray.d) < 0) { //face forward
@@ -166,11 +172,12 @@ RadianceQueryRecord PathRendernetIntegrator::RecordedLi(const Scene *scene, cons
           depth_at_first = hitDistance;
           albedo_at_first = currAlbedo;
 
+          // Flag whether light is directly visible (i.e. at first bounce)
           isLightVisible = isLightVisible || qr.isLightVisible;
         }
 
-        // record value at first rough 
-        if (!recordedOutputValues && foundRough) {
+        // record value at first nonspecular 
+        if (!recordedOutputValues && isFirstNonSpecular) {
           recordedOutputValues = true;
           depth = hitDistance;
           albedo = currAlbedo;
@@ -200,6 +207,9 @@ RadianceQueryRecord PathRendernetIntegrator::RecordedLi(const Scene *scene, cons
           Error("Not-a-number in bsdfweight");
         }
 
+        // After the first rough bounce, the path is no longer purely specular,
+        // we accumulate radiance in the diffuse component
+        // TODO(mgharbi): this looks odd, should it be at all diffuse bounce? or after the first
         if(isFirstRough) {
           Spectrum bsdfWeightDiffuse = specularBounce ? Spectrum(0.0f) : 
             bsdf->f(wo, wi, BxDFType(BSDF_DIFFUSE|BSDF_REFLECTION|BSDF_GLOSSY)) * AbsDot(wi, n) / pdf;
@@ -222,9 +232,9 @@ RadianceQueryRecord PathRendernetIntegrator::RecordedLi(const Scene *scene, cons
                   L += contrib*pathThroughput;
                   if (foundRough) {
                     Ldiffuse += contrib*pathThroughputDiffuse;
-                    if (bounces > 0)  {
-                      Ldiffuse_indirect += contrib*pathThroughputDiffuse;
-                    }
+                    // if (bounces > 0)  {
+                    //   Ldiffuse_indirect += contrib*pathThroughputDiffuse;
+                    // }
                   }
                 }
             }
@@ -236,65 +246,54 @@ RadianceQueryRecord PathRendernetIntegrator::RecordedLi(const Scene *scene, cons
         isectp = &localIsect;
     } // bounces loop
 
+    // Check fro NaNs
+    if (nrm_at_first.HasNaNs()) {
+      Error("normal first has nans");
+    }
+    if (nrm.HasNaNs()) {
+      Error("normal has nans");
+    }
+    if (albedo.HasNaNs()) {
+      Error("albedo has nans");
+    }
+    if (albedo_at_first.HasNaNs()) {
+      Error("albedo at first has nans");
+    }
+    if (albedo.y() > 101.0f || albedo_at_first.y() > 101.0f) {
+        Error("albedo is too high");
+    }
+    if (Ldiffuse.HasNaNs()) {
+        Error("diffuse has nan");
+    }
+    // if (Ldiffuse_indirect.HasNaNs()) {
+    //     Error("diffuse indirect has nan");
+    // }
+    if (L.HasNaNs()) {
+        Error("L  has nan");
+    }
+
     if (sr) {
-      if (nrm_at_first.HasNaNs()) {
-        Error("normal first has nans");
-        // nrm_at_first.x = 0.0f;
-        // nrm_at_first.y = 0.0f;
-        // nrm_at_first.z = 0.0f;
-      }
-      if (nrm.HasNaNs()) {
-        Error("normal has nans");
-        // nrm.x = 0.0f;
-        // nrm.y = 0.0f;
-        // nrm.z = 0.0f;
-      }
-      if (albedo.HasNaNs()) {
-        Error("albedo has nans");
-        // albedo = Spectrum(0.f);
-      }
-      if (albedo_at_first.HasNaNs()) {
-        Error("albedo at first has nans");
-        // albedo_at_first = Spectrum(0.f);
-      }
-      if (albedo.y() > 101.0f || albedo_at_first.y() > 101.0f) {
-          Error("albedo is too high");
-          // throw;
-      }
+      // Store decomposed radiance
+      sr->radiance_diffuse.push_back(Ldiffuse);
+      // sr->radiance_diffuse_indirect.push_back(Ldiffuse_indirect);
+      sr->radiance_specular.push_back(L - Ldiffuse);
 
-      if (Ldiffuse.HasNaNs()) {
-          Error("diffuse has nan");
-        // Ldiffuse = Spectrum(0.f);
-      }
-      if (Ldiffuse_indirect.HasNaNs()) {
-          Error("diffuse indirect has nan");
-        // Ldiffuse_indirect = Spectrum(0.f);
-      }
-      if (L.HasNaNs()) {
-          Error("L  has nan");
-        // L = Spectrum(0.f);
-      }
-
+      // Store features at first bounce
       sr->normal_at_first.push_back(nrm_at_first);
-      sr->normal.push_back(nrm);
       sr->depth_at_first.push_back(depth_at_first);
+      sr->albedo_at_first.push_back(albedo_at_first);
+
+      // Store other features
+      sr->normal.push_back(nrm);
       sr->depth.push_back(depth);
       sr->visibility.push_back(isLightVisible ? 1.0 : 0.0);
       sr->hasHit.push_back(1.0);
       sr->albedo.push_back(albedo);
-      sr->albedo_at_first.push_back(albedo_at_first);
-
-      sr->radiance_diffuse.push_back(Ldiffuse);
-      sr->radiance_diffuse_indirect.push_back(Ldiffuse_indirect);
-      sr->radiance_specular.push_back(L - Ldiffuse);
       sr->probabilities.push_back(probabilities);
       sr->light_directions.push_back(light_directions);
       sr->bounce_type.push_back(bounce_type);
     }
 
-    // printf("rq_nrm %f %f %f | %f %f %f\n",
-    //     nrm.x, nrm.y, nrm.z,
-    //     nrm_at_first.x, nrm_at_first.y, nrm_at_first.z);
     return RadianceQueryRecord(
         L, Ldiffuse, albedo, nrm, depth, isLightVisible, true);
 }

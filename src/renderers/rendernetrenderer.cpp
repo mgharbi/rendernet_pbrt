@@ -78,13 +78,11 @@ void RendernetRendererTask::Run() {
     //
     Sampler* samplers[2] = {
       mainSampler->GetSubSampler(taskNum, taskCount), 
-      // mainSampler2->GetSubSampler(taskNum, taskCount), 
       recordedSampler->GetSubSampler(taskNum, taskCount)
     };
 
     Sample* origSamples[2] = {
       origSample,
-      // origSample2,
       recordedOrigSample,
     };
 
@@ -99,7 +97,7 @@ void RendernetRendererTask::Run() {
     // Declare local variables used for rendering loop
     MemoryArena arena;
     // TODO(mgharbi): not sure why we changed this
-    RNG rng(time(NULL)); // RNG rng(taskNum);
+    // RNG rng(time(NULL)); // RNG rng(taskNum);
 
     Point sceneCenter;
     float sceneRadius;
@@ -134,6 +132,7 @@ void RendernetRendererTask::Run() {
 
     // Allocate space for samples and intersections
     for (int sampler_idx = 0; sampler_idx < 2; ++sampler_idx) {
+      RNG rng(0); // RNG rng(taskNum);
 
       Sampler *sampler = samplers[sampler_idx];
 
@@ -156,10 +155,8 @@ void RendernetRendererTask::Run() {
           PBRT_STARTED_GENERATING_CAMERA_RAY(&samples[i]);
           float rayWeight = camera->GenerateRayDifferential(samples[i], &rays[i]);
 
-          // printf("Scaling ray differential by %0.5f (%d spp)\n", 
-          //     1.f / sqrtf(sampler->samplesPerPixel),
-          //     sampler->samplesPerPixel);
-          // TODO(mgharbi): this scaling is inconsistent between our lowspp data and the ground-truth
+          // TODO(mgharbi): this scaling was inconsistent between our lowspp
+          // data and the ground-truth so we fix it to a constant
             rays[i].ScaleDifferentials(1.f / sqrtf(8192));
           // rays[i].ScaleDifferentials(1.f / sqrtf(sampler->samplesPerPixel));
 
@@ -191,6 +188,7 @@ void RendernetRendererTask::Run() {
                 arena, &isects[i], &Ts[i], NULL);
             rq_rec.add(ret, rayWeight);
           }
+
           // TODO(mgharbi) 2019-03-06 Hack to compute the grountruth, sum diffuse + specular
           float rgb_d[3];
           float rgb_s[3];
@@ -203,7 +201,7 @@ void RendernetRendererTask::Run() {
         } // spp loop
         
         // We're constructing an image
-        if( sampler_idx < 1 ) {
+        if( sampler_idx == 0 ) {
           // Add pixel data to .bin record
           sr->add_image_sample(rq_rec, sampler_idx);
         }
@@ -363,17 +361,18 @@ RadianceQueryRecord RendernetRenderer::RecordedLi(const Scene *scene,
     Intersection localIsect;
     if (!isect) isect = &localIsect;
     RadianceQueryRecord rq_rec;
+
     if (scene->Intersect(ray, isect)) {
         rq_rec = surfaceIntegrator->RecordedLi(
             scene, this, ray, *isect, sample, rng, arena, sr, camera);
-    } else {
+    } else { // No intersection
+
         // Handle ray that doesn't intersect any geometry
         Spectrum Li;
         for (uint32_t i = 0; i < scene->lights.size(); ++i) {
            Li += scene->lights[i]->Le(ray);
         }
 
-        // No intersection
         Normal default_n;
         rq_rec = RadianceQueryRecord(
             Li, Spectrum(0.0f), Spectrum(0.0f), default_n, -1.0f, false, false);
@@ -382,16 +381,16 @@ RadianceQueryRecord RendernetRenderer::RecordedLi(const Scene *scene,
           // Transform tx;
           // camera->CameraToWorld.Interpolate(sample->time, &tx);
           Spectrum zero = 0.;
-          sr->radiance_diffuse.push_back(zero);
-          sr->radiance_diffuse_indirect.push_back(zero);
           sr->radiance_specular.push_back(Li); // We only have the scene lights/envmap contributions
+          sr->radiance_diffuse.push_back(zero);
+          // sr->radiance_diffuse_indirect.push_back(zero);
 
-          sr->albedo.push_back(Spectrum(0.0f));
           sr->albedo_at_first.push_back(Spectrum(0.0f));
           sr->normal_at_first.push_back(default_n);
-          sr->normal.push_back(default_n);
-
           sr->depth_at_first.push_back(-1.0f);  // no intersection
+
+          sr->albedo.push_back(Spectrum(0.0f));
+          sr->normal.push_back(default_n);
           sr->depth.push_back(-1.0f);  // no intersection
 
           sr->visibility.push_back(0.0f);
@@ -406,8 +405,8 @@ RadianceQueryRecord RendernetRenderer::RecordedLi(const Scene *scene,
         }
     }
     // NOTE(mgharbi): volume not accounted for, for now
-    Spectrum Lvi = volumeIntegrator->Li(scene, this, ray, sample, rng,
-                                        T, arena);
+    // Spectrum Lvi = volumeIntegrator->Li(scene, this, ray, sample, rng,
+    //                                     T, arena);
     
     // TODO: multiply radiance by *T if using transmissive media
     return rq_rec;

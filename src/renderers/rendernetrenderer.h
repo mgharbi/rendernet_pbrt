@@ -60,10 +60,8 @@ public:
     {
         scene = sc; renderer = ren; camera = c; 
         mainSampler = ms; 
-        // mainSampler2 = ms2; 
         recordedSampler = rs;
         origSample = sam; 
-        // origSample2 = sam2; 
         recordedOrigSample = rsam; 
         taskNum = tn; taskCount = tc;
     }
