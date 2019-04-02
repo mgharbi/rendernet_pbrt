@@ -97,7 +97,7 @@ void RendernetRendererTask::Run() {
     // Declare local variables used for rendering loop
     MemoryArena arena;
     // TODO(mgharbi): not sure why we changed this
-    // RNG rng(time(NULL)); // RNG rng(taskNum);
+    RNG rng(time(NULL)); // RNG rng(taskNum);
 
     Point sceneCenter;
     float sceneRadius;
@@ -132,8 +132,6 @@ void RendernetRendererTask::Run() {
 
     // Allocate space for samples and intersections
     for (int sampler_idx = 0; sampler_idx < 2; ++sampler_idx) {
-      RNG rng(0); // RNG rng(taskNum);
-
       Sampler *sampler = samplers[sampler_idx];
 
       int maxSamples = sampler->MaximumSampleCount();
