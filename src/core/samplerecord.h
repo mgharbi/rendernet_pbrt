@@ -73,6 +73,7 @@ public:
   static int sample_features;
   static int pixel_features;
   static int buffer_channels;
+  static int reference_images;
 
   SampleRecord(
       int x, int y, int tilesize, int sample_count, int spp, int maxDepth,

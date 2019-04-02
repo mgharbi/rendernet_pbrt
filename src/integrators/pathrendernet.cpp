@@ -170,7 +170,7 @@ RadianceQueryRecord PathRendernetIntegrator::RecordedLi(const Scene *scene, cons
         }
 
         // record value at first rough 
-        if (sr && !recordedOutputValues && foundRough) {
+        if (!recordedOutputValues && foundRough) {
           recordedOutputValues = true;
           depth = hitDistance;
           albedo = currAlbedo;
@@ -292,6 +292,9 @@ RadianceQueryRecord PathRendernetIntegrator::RecordedLi(const Scene *scene, cons
       sr->bounce_type.push_back(bounce_type);
     }
 
+    // printf("rq_nrm %f %f %f | %f %f %f\n",
+    //     nrm.x, nrm.y, nrm.z,
+    //     nrm_at_first.x, nrm_at_first.y, nrm_at_first.z);
     return RadianceQueryRecord(
         L, Ldiffuse, albedo, nrm, depth, isLightVisible, true);
 }

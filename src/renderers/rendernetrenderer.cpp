@@ -76,19 +76,19 @@ void RendernetRendererTask::Run() {
     PBRT_STARTED_RENDERTASK(taskNum);
     // Get sub-_Sampler_ for _RendernetRendererTask_
     //
-    Sampler* samplers[3] = {
+    Sampler* samplers[2] = {
       mainSampler->GetSubSampler(taskNum, taskCount), 
-      mainSampler2->GetSubSampler(taskNum, taskCount), 
+      // mainSampler2->GetSubSampler(taskNum, taskCount), 
       recordedSampler->GetSubSampler(taskNum, taskCount)
     };
 
-    Sample* origSamples[3] = {
+    Sample* origSamples[2] = {
       origSample,
-      origSample2,
+      // origSample2,
       recordedOrigSample,
     };
 
-    for (int i = 0; i < 3; ++i) {
+    for (int i = 0; i < 2; ++i) {
       if (!samplers[i]) {
           reporter.Update();
           PBRT_FINISHED_RENDERTASK(taskNum);
@@ -118,7 +118,7 @@ void RendernetRendererTask::Run() {
         samplers[0]->xPixelStart-xstart,
         samplers[1]->yPixelStart-ystart,
         renderer->tileSize, 
-        samplers[2]->samplesPerPixel,  // Saved samples
+        samplers[1]->samplesPerPixel,  // Saved samples
         samplers[0]->samplesPerPixel,  // Image reference
         renderer->maxDepth,
         xend-xstart,
@@ -133,11 +133,7 @@ void RendernetRendererTask::Run() {
     }
 
     // Allocate space for samples and intersections
-    for (int sampler_idx = 0; sampler_idx < 3; ++sampler_idx) {
-      // TODO(mgharbi): no dual buffer hack:
-      if(sampler_idx == 1) {
-        continue;
-      }
+    for (int sampler_idx = 0; sampler_idx < 2; ++sampler_idx) {
 
       Sampler *sampler = samplers[sampler_idx];
 
@@ -171,7 +167,7 @@ void RendernetRendererTask::Run() {
 
           // Evaluate radiance along camera ray
           // PBRT_STARTED_CAMERA_RAY_INTEGRATION(&rays[i], &samples[i]);
-          if (sampler_idx == 2) {
+          if (sampler_idx == 1) {
             // we save the sample, and ignore the buffer data
             RadianceQueryRecord ret = renderer->RecordedLi(scene, rays[i], &samples[i], rng,
                 arena, &isects[i], &Ts[i], sr); 
@@ -194,7 +190,6 @@ void RendernetRendererTask::Run() {
             RadianceQueryRecord ret = renderer->RecordedLi(scene, rays[i], &samples[i], rng,
                 arena, &isects[i], &Ts[i], NULL);
             rq_rec.add(ret, rayWeight);
-
           }
           // TODO(mgharbi) 2019-03-06 Hack to compute the grountruth, sum diffuse + specular
           float rgb_d[3];
@@ -205,8 +200,13 @@ void RendernetRendererTask::Run() {
           }
           Ls[i] = RGBSpectrum::FromRGB(rgb_d) + RGBSpectrum::FromRGB(rgb_s);
           PBRT_FINISHED_CAMERA_RAY_INTEGRATION(&rays[i], &samples[i], &Ls[i]);
-          
         } // spp loop
+        
+        // We're constructing an image
+        if( sampler_idx < 1 ) {
+          // Add pixel data to .bin record
+          sr->add_image_sample(rq_rec, sampler_idx);
+        }
         
         // Report sample results to _Sampler_, add contributions to image
         if (sampler_idx == 0 && sampler->ReportResults(samples, rays, Ls, isects, sampleCount))
@@ -219,23 +219,6 @@ void RendernetRendererTask::Run() {
             }
         }
 
-
-        // We're constructing an image
-        if( sampler_idx < 2 ) {
-          // Add pixel data to .bin record
-          sr->add_image_sample(rq_rec, sampler_idx);
-        }
-
-        // // Report sample results to _Sampler_, add contributions to image
-        // if (sampler->ReportResults(samples, rays, Ls, isects, sampleCount))
-        // {
-        //     for (int i = 0; i < sampleCount; ++i)
-        //     {
-        //         PBRT_STARTED_ADDING_IMAGE_SAMPLE(&samples[i], &rays[i], &Ls[i], &Ts[i]);
-        //         camera->film->AddSample(samples[i], Ls[i]);
-        //         PBRT_FINISHED_ADDING_IMAGE_SAMPLE();
-        //     }
-        // }
 
         // Free _MemoryArena_ memory from computing image sample values
         arena.FreeAll();
@@ -259,7 +242,7 @@ void RendernetRendererTask::Run() {
     camera->film->UpdateDisplay(samplers[0]->xPixelStart,
         samplers[0]->yPixelStart, samplers[0]->xPixelEnd+1, samplers[0]->yPixelEnd+1);
     delete sr;
-    for (int i = 0; i < 3; ++i) {
+    for (int i = 0; i < 2; ++i) {
       delete samplers[i];
     }
     reporter.Update();
@@ -273,7 +256,7 @@ RendernetRenderer::RendernetRenderer(Sampler *s, Sampler *s2, Sampler *rs, Camer
                                  SurfaceIntegrator *si, VolumeIntegrator *vi,
                                  int tSz, int recSamples, bool useCamSpaceNrm) {
     sampler = s;
-    sampler2 = s2;
+    // sampler2 = s2;
     sampler_recorded = rs;
     camera = c;
     surfaceIntegrator = si;
@@ -291,7 +274,7 @@ RendernetRenderer::RendernetRenderer(Sampler *s, Sampler *s2, Sampler *rs, Camer
 
 RendernetRenderer::~RendernetRenderer() {
     delete sampler;
-    delete sampler2;
+    // delete sampler2;
     delete sampler_recorded;
     delete camera;
     delete surfaceIntegrator;
@@ -310,8 +293,8 @@ void RendernetRenderer::Render(const Scene *scene) {
     // Allocate and initialize _sample_
     Sample *sample = new Sample(sampler, surfaceIntegrator,
                                 volumeIntegrator, scene);
-    Sample *sample2 = new Sample(sampler2, surfaceIntegrator,
-                                volumeIntegrator, scene);
+    // Sample *sample2 = new Sample(sampler2, surfaceIntegrator,
+    //                             volumeIntegrator, scene);
     Sample *rsample = new Sample(sampler_recorded, surfaceIntegrator,
                                 volumeIntegrator, scene);
 
@@ -333,16 +316,16 @@ void RendernetRenderer::Render(const Scene *scene) {
     }
     int nTasks = xRes*yRes / (tileSize*tileSize);
 
-    printf("Resolution %dx%d, %d tiles with size %d. References with %d and %d samples. Input with %d samples)\n",
-        xRes, yRes, nTasks, tileSize, sampler->samplesPerPixel, sampler2->samplesPerPixel, sampler_recorded->samplesPerPixel);
+    printf("Resolution %dx%d, %d tiles with size %d. References with %d samples. Input with %d samples)\n",
+        xRes, yRes, nTasks, tileSize, sampler->samplesPerPixel, sampler_recorded->samplesPerPixel);
 
     ProgressReporter reporter(nTasks, "Rendering");
     vector<Task *> renderTasks;
     for (int i = 0; i < nTasks; ++i) {
       renderTasks.push_back(
           new RendernetRendererTask(
-            scene, this, camera, reporter, sampler, sampler2,
-            sampler_recorded, sample, sample2, rsample, nTasks-1-i, nTasks));
+            scene, this, camera, reporter, sampler,
+            sampler_recorded, sample, rsample, nTasks-1-i, nTasks));
     }
     EnqueueTasks(renderTasks);
     WaitForAllTasks();
@@ -355,7 +338,7 @@ void RendernetRenderer::Render(const Scene *scene) {
     PBRT_FINISHED_RENDERING();
     // Clean up after rendering and store final image
     delete sample;
-    delete sample2;
+    // delete sample2;
     delete rsample;
     camera->film->WriteImage();
 }

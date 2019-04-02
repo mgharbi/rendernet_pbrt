@@ -5,7 +5,8 @@
 #include <iterator>
 #include <lz4frame.h>
 
-int SampleRecord::version = 20181212;
+int SampleRecord::version = 20190401;
+int SampleRecord::reference_images = 1;
 int SampleRecord::buffer_channels = 15;
 int SampleRecord::sample_features = 
   5   // dx, dy, u, v, t
@@ -18,7 +19,7 @@ int SampleRecord::sample_features =
   + 1   // hit
   + 3   // albedo_at_first
   + 3;  // albedo
-int SampleRecord::pixel_features = SampleRecord::buffer_channels*2*2; // 2 references with variance
+int SampleRecord::pixel_features = SampleRecord::buffer_channels*2*SampleRecord::reference_images; // 2: mean + variance
 
 RadianceQueryRecord::RadianceQueryRecord() {
   count = 0;
@@ -149,8 +150,8 @@ SampleRecord::SampleRecord(
   bounce_type.reserve(tileSize*tileSize*sample_count);
 
   // suffix
-  image_data.reserve(buffer_channels*2*2); // 2 reference images (+ variance)
-  for (int i = 0; i < 2*2*buffer_channels; ++i) {
+  image_data.reserve(buffer_channels*2*SampleRecord::reference_images); // 2 reference images (+ variance)
+  for (int i = 0; i < SampleRecord::reference_images*2*buffer_channels; ++i) {
     image_data.push_back(std::vector<float>());
     image_data[i].reserve(tileSize*tileSize);
   }
@@ -158,7 +159,9 @@ SampleRecord::SampleRecord(
 
 void SampleRecord::check_sizes() {
   if ((int)pixel_x.size() != tileSize*tileSize*sample_count)
-    Error("incorrect pixel_x");
+    Error("incorrect pixel_x %d, shoudl be %d. %d %d",
+        pixel_x.size(), tileSize*tileSize*sample_count, 
+        tileSize, sample_count);
   if ((int)pixel_y.size() != tileSize*tileSize*sample_count)
     Error("incorrect pixel_y");
   if ((int)subpixel_x.size() != tileSize*tileSize*sample_count)
