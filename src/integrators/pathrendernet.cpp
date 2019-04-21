@@ -199,13 +199,18 @@ RadianceQueryRecord PathRendernetIntegrator::RecordedLi(const Scene *scene, cons
         } 
 
         Spectrum bsdfWeight =  f * AbsDot(wi, n) / pdf;
-        pathThroughput *= bsdfWeight;
 
+        if (bsdfWeight.HasNaNs()) {
+          Error("Not-a-number in bsdfweight, setting to 0");
+          bsdfWeight = 0;
+        } else if (isinf(bsdfWeight.y())) {
+          Error("Infinite bsdfweight, setting to 0");
+          bsdfWeight = 0;
+        }
+
+        pathThroughput *= bsdfWeight;
         specularBounce = (flags & BSDF_SPECULAR) != 0;
 
-        if (bsdfWeight.HasNaNs() || isinf(bsdfWeight.y())) {
-          Error("Not-a-number in bsdfweight");
-        }
 
         // After the first rough bounce, the path is no longer purely specular,
         // we accumulate radiance in the diffuse component
