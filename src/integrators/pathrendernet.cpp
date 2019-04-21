@@ -201,10 +201,10 @@ RadianceQueryRecord PathRendernetIntegrator::RecordedLi(const Scene *scene, cons
         Spectrum bsdfWeight =  f * AbsDot(wi, n) / pdf;
 
         if (bsdfWeight.HasNaNs()) {
-          Error("Not-a-number in bsdfweight, setting to 0");
+          Warning("Not-a-number in bsdfweight, setting to 0");
           bsdfWeight = 0;
         } else if (isinf(bsdfWeight.y())) {
-          Error("Infinite bsdfweight, setting to 0");
+          Warning("Infinite bsdfweight, setting to 0");
           bsdfWeight = 0;
         }
 
@@ -268,13 +268,12 @@ RadianceQueryRecord PathRendernetIntegrator::RecordedLi(const Scene *scene, cons
         Error("albedo is too high");
     }
     if (Ldiffuse.HasNaNs()) {
-        Error("diffuse has nan");
+        Warning("diffuse has nan, setting to 0");
+        Ldiffuse = 0;
     }
-    // if (Ldiffuse_indirect.HasNaNs()) {
-    //     Error("diffuse indirect has nan");
-    // }
     if (L.HasNaNs()) {
-        Error("L  has nan");
+        Warning("L  has nan, setting to 0");
+        L = 0;
     }
 
     if (sr) {
